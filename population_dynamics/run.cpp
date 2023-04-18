@@ -46,6 +46,9 @@ int main() {
       people[i].id = i;                      // set identifier for the person as the index
       people[i].diseased = false;            // set initial disease status as not diseased
       people[i].day_infected = -1;           // set initial day infected as -1 (not infected)
+      people[i].dead = false;                // set initial dead status as not dead
+      people[i].variant = -1;                 // set initial variant as -1 (not infected)
+      people[i].immunity = 0;                // set initial immunity as 0 (not immune)
   }
 
   for (int i = 0; i < MAX_STARTING_POPULATION; i++) {

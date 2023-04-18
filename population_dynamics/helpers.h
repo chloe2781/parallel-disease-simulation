@@ -14,13 +14,17 @@
 #define MAX_MOVEMENT 8
 #define MAX_STARTING_INFECTED 3
 
-// data typedef struct {
-            std::atomic<int> x;    // x location in grid
-            std::atomic<int> y;    // y location in grid
-            int id;                // identifier for the person
-            bool diseased;         // whether the person currently is infected (<14 days since day_infected)
-            int day_infected;      // latest timestep at which individual was infected
-        } Person;structure to store information about a person
+// data structure to store information about a person
+typedef struct {
+    std::atomic<int> x;    // x location in grid
+    std::atomic<int> y;    // y location in grid
+    int id;                // identifier for the person
+    bool diseased;         // whether the person currently is infected (<14 days since day_infected)
+    int day_infected;      // latest timestep at which individual was infected
+    bool dead;             // whether the person is dead
+    int variant;       // variant of the disease the person is infected with
+    int immunity;          // number of days until the person is no longer immune
+} Person;
 
 
 // data structure to store information about a variation
@@ -31,6 +35,7 @@ typedef struct {
     float infection_rate;            // percent chance that a person within the infected range is infected
     int infection_range;             // distance at which a person can be infected
     float mutation_rate;             // percent chance that an infection mutates upon infection of another person
+    int immunity;                    // number of days until the person is no longer immune
 } Variant;
 
 // random range integer in range [0,max_range)

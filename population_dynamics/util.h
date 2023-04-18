@@ -16,6 +16,7 @@ void initialize_infection(Person *people) {
         int id = randRangePos(MAX_STARTING_POPULATION);
         people[id].diseased = true;
         people[id].day_infected = 0;
+        people[id].variant = 0;
     }
 }
 
@@ -113,10 +114,22 @@ void mutate(Variant *variants, Person *people){
 
 //Those who survive a disease long enough gain immunity.
 //Immunity is temporary dictated by virus stats
-void die(Person *people){
+void die(Person *people, Variant *variants){
 
-    //for (int i = 0; i < TOTAL_POPULATION; i++){
-    //}
+    for (int i = 0; i < MAX_STARTING_POPULATION; i++) {
+      if (people[i].diseased) {
+        float prob = rand01();
+        if (prob < variants[people[i].variant].mortality_rate) {
+            people[i].dead = true;
+        }
+        if (people[i].day_infected >= variants[people[i].variant].recovery_time) {
+            people[i].diseased = false;
+            people[i].day_infected = -1;
+            people[i].variant = -1;
+            people[i].immunity = variants[people[i].variant].immunity;
+        }
+      }
+    }
 
 }
 
