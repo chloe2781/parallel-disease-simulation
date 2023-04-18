@@ -1,18 +1,55 @@
 #include "helpers.h"
 // I suggest testing with this set to 1 first!
 #define MAX_THREADS 8
+#define MAX_STARTING_POPULATION 1000000
+#define BOARD_LENGTH 256
+#define BOARD_WIDTH 256
 
+
+// function to initialize infection
+// randomly select a person to be infected
+// set their infected status to true
+// set their infection time to 0
+void initialize_infection(Person *people) {
+    // Generate random indexes for people to be infected
+    for (int i = 0; i < MAX_STARTING_INFECTED; i++) {
+        int id = randRangePos(MAX_STARTING_POPULATION);
+        people[id].diseased = true;
+        people[id].day_infected = 0;
+    }
+}
 
 // function to move people within a fixed distance
 
 // randomly move on both axes
 // edges are wrapped based on world size
+// SHOULD WORK
 void move(Person *people) {
 
-    //for (int i = 0; i < TOTAL_POPULATION; i++){
-        //people[i].x
-        //people[i].y
-    //}
+//    for (int i = 0; i < TOTAL_POPULATION; i++){
+//        people[i].x += randRange
+//        people[i].y
+//    }
+
+    for (int i = 0; i < MAX_STARTING_POPULATION; i++) {
+        // Generate random offsets for x and y coordinates within the movement range
+        int offsetX = randRange(MAX_MOVEMENT);
+        int offsetY = randRange(MAX_MOVEMENT);
+
+        std::cout << offsetX << std::endl;
+        std::cout << offsetY << std::endl;
+
+        // Update the x and y coordinates of the person, wrapping around the world size
+        people[i].x = (people[i].x + offsetX);
+        people[i].y = (people[i].y + offsetY);
+
+        // Wrap around the world size
+        if (people[i].x >= BOARD_LENGTH) people[i].x = BOARD_LENGTH -1;
+        else if (people[i].x <= 0) people[i].x = 1;
+
+        if (people[i].y >= BOARD_WIDTH) people[i].x = BOARD_WIDTH -1;
+        else if (people[i].y <= 0) people[i].y = 1;
+    }
 
 }
 
@@ -20,7 +57,7 @@ void move(Person *people) {
 
 // for all people, check if they are currently infected
 // store a list tuples of their positions (x,y)
-list<tuple<int, int>> get_infected(Person *people) {
+std::list<std::tuple<int, int>> get_infected(Person* people) {
     //list<tuple<int, int>> infected;
 
     //for (int i = 0; i < TOTAL_POPULATION; i++){
@@ -29,6 +66,16 @@ list<tuple<int, int>> get_infected(Person *people) {
     //}
 
     //return infected;
+
+    std::list<std::tuple<int, int>> infected;
+
+    for (int i = 0; i < MAX_STARTING_POPULATION; i++) {
+        if (people[i].diseased) { // Check if person is currently infected
+            infected.push_back(std::make_tuple(people[i].x.load(), people[i].y.load())); // Add position (x, y) as tuple
+        }
+    }
+
+    return infected;
 }
 
 
