@@ -79,6 +79,12 @@ std::list<std::tuple<int, int>> get_infected(Person* people) {
     return infected;
 }
 
+// Function to calculate distance between two people
+double calculateDistance(const Person& person1, const Person& person2) {
+    int dx = person1.x - person2.x;
+    int dy = person1.y - person2.y;
+    return std::sqrt(dx * dx + dy * dy);
+}
 
 //function to infect population based on currently infected
 //call get_infected to get list of infected people
@@ -118,15 +124,15 @@ void die(Person *people, Variant *variants){
 
     for (int i = 0; i < MAX_STARTING_POPULATION; i++) {
       if (people[i].diseased) {
+        if (people[i].day_infected >= variants[people[i].variant].recovery_time) {
+          people[i].diseased = false;
+          people[i].day_infected = -1;
+          people[i].variant = -1;
+          people[i].immunity = variants[people[i].variant].immunity;
+        }
         float prob = rand01();
         if (prob < variants[people[i].variant].mortality_rate) {
-            people[i].dead = true;
-        }
-        if (people[i].day_infected >= variants[people[i].variant].recovery_time) {
-            people[i].diseased = false;
-            people[i].day_infected = -1;
-            people[i].variant = -1;
-            people[i].immunity = variants[people[i].variant].immunity;
+          people[i].dead = true;
         }
       }
     }
