@@ -1,4 +1,5 @@
-__host__ void simulation(int *pos_x, int *pos_y);
-__global__ void movePeople(int *pos_x, int *pos_y);
-__global__ void generateRandomInt4(int4 *out);
+#include <cstdint>
+
+__host__ void simulation(uint8_t* pos_x, uint8_t* pos_y);
+__global__ void movePeople(uint8_t* pos_x, uint8_t* pos_y);
 __device__ int generateCuRand();

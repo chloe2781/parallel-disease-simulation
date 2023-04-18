@@ -1,15 +1,14 @@
 #include <iostream>
 #include "config.h"
 #include "simulation.cuh"
+#include <cstdint>
 
 int main()
 {
     std::cout << "Hello from CPU!" << std::endl;
-    
-    int* h_pos_x = new int[POPULATION];
-    int* h_pos_y = new int[POPULATION];
 
-    printf("Value: %d\n", -3 % 255);
+    uint8_t* h_pos_x = new uint8_t[POPULATION];
+    uint8_t* h_pos_y = new uint8_t[POPULATION];
 
     for(int i = 0; i < POPULATION; i++)
     {

@@ -3,35 +3,54 @@
 #include <stdio.h>
 #include "simulation.cuh"
 #include <curand_kernel.h>
+#include <cstdint>
+#include <cuda_runtime.h>
+//allow use of uint8_t
 
-__host__ void simulation(int *pos_x, int *pos_y) {
+__host__ void simulation(uint8_t* pos_x, uint8_t* pos_y) {
 
         // set up GPU memory
-        int* d_pos_x;
-        int* d_pos_y;
+        uint8_t* d_pos_x;
+        uint8_t* d_pos_y;
 
-        cudaMalloc((void**)&d_pos_x, sizeof(int) * POPULATION);
-        cudaMalloc((void**)&d_pos_y, sizeof(int) * POPULATION);
+        int size = sizeof(uint8_t) * POPULATION;
 
+        cudaMalloc((void**)&d_pos_x, size);
+        cudaMalloc((void**)&d_pos_y, size);
+        
         //ensure that malloc worked
-        if (d_pos_x == NULL || d_pos_y == NULL) {
-            printf("Error: malloc failed");
+        if (d_pos_x == NULL){
+            printf("Error allocating GPU memory 1\n");
             return;
         }
-
+        if (d_pos_y == NULL){
+            printf("Error allocating GPU memory 2\n");
+            return;
+        }
+        printf("Done\n");
+        //printf("Copying data to GPU...");
         //copy data into GPU memory
-        cudaMemcpy(d_pos_x, pos_x, sizeof(int) * POPULATION, cudaMemcpyHostToDevice);
-        cudaMemcpy(d_pos_y, pos_y, sizeof(int) * POPULATION, cudaMemcpyHostToDevice);
-        
+        cudaMemcpy(d_pos_x, pos_x, sizeof(uint8_t) * POPULATION, cudaMemcpyHostToDevice);
+        cudaMemcpy(d_pos_y, pos_y, sizeof(uint8_t) * POPULATION, cudaMemcpyHostToDevice);
+        if (cudaGetLastError() != cudaSuccess){
+            printf("Error copying data to GPU\n");
+            return;
+        }
+        //printf("Done\n");
+
         // run the gpu code once
         printf("Before movePeople\n");
         movePeople<<<BLOCKS, THREADS>>>(d_pos_x, d_pos_y);
         cudaDeviceSynchronize();
-        printf("After movePeople");
+        printf("After movePeople\n");
         
         //copy data back into CPU memory
-        cudaMemcpy(pos_x, d_pos_x, sizeof(int) * POPULATION, cudaMemcpyDeviceToHost);
-        cudaMemcpy(pos_y, d_pos_y, sizeof(int) * POPULATION, cudaMemcpyDeviceToHost);
+        cudaMemcpy(pos_x, d_pos_x, sizeof(uint8_t) * POPULATION, cudaMemcpyDeviceToHost);
+        cudaMemcpy(pos_y, d_pos_y, sizeof(uint8_t) * POPULATION, cudaMemcpyDeviceToHost);
+        if (cudaGetLastError() != cudaSuccess){
+            printf("Error copying data from GPU\n");
+            return;
+        }
 
 
         //free GPU memory
@@ -41,49 +60,10 @@ __host__ void simulation(int *pos_x, int *pos_y) {
 }
 
 // copy the relevant data into shared GPU memory
-__global__ void movePeople(int *pos_x, int *pos_y) {
+__global__ void movePeople(uint8_t *pos_x, uint8_t *pos_y) {
     
-    //each thread will be responsible for one vector operation
-    //so shared memory should contain threads * vector_size elements
-
-    const int num_elements = THREADS;
-    __shared__ int s_pos_x[num_elements];
-    __shared__ int s_pos_y[num_elements];
-
-    //block 0 handles 0 to num_elements
-    //block 1 handles num_elements to THREADS * 8, etc
-    int offset = num_elements * blockIdx.x;
-
-    // need to coalesce memory accesses
-    // each thread will handle 4 elements
-    for(int i = 0; i < num_elements; i += THREADS) {
-        s_pos_x[i + threadIdx.x] = pos_x[offset + i + threadIdx.x];
-        s_pos_y[i + threadIdx.x] = pos_y[offset + i + threadIdx.x];
-    }
-
-    __syncthreads();
-
-
-    for(int i = 0; i < num_elements; i += THREADS) {
-        //add in grid size to ensure that the number is positive
-        s_pos_x[i + threadIdx.x] = (s_pos_x[i + threadIdx.x] + generateCuRand() + GRID_SIZE) % GRID_SIZE;
-        s_pos_y[i + threadIdx.x] = (s_pos_y[i + threadIdx.x] + generateCuRand() + GRID_SIZE) % GRID_SIZE;
-        // if(s_pos_x[i + threadIdx.x] == 42069){
-        //     printf("error: thread overlap");
-        // }
-
-        // s_pos_x[i + threadIdx.x] = 42069;
-        // s_pos_y[i + threadIdx.x] = threadIdx.x;
-
-    }
-
-    __syncthreads();
-
-    //now we need to copy the data back into global memory
-    for(int i = 0; i < num_elements; i += THREADS) {
-        pos_x[offset + i + threadIdx.x] = s_pos_x[i + threadIdx.x];
-        pos_y[offset + i + threadIdx.x] = s_pos_y[i + threadIdx.x];
-    }
+    pos_x[blockIdx.x * blockDim.x + threadIdx.x] = (pos_x[blockIdx.x * blockDim.x + threadIdx.x] + generateCuRand() + GRID_SIZE) % GRID_SIZE;
+    pos_y[blockIdx.x * blockDim.x + threadIdx.x] = (pos_y[blockIdx.x * blockDim.x + threadIdx.x] + generateCuRand() + GRID_SIZE) % GRID_SIZE;
 }
 
 // device function to make a random number
