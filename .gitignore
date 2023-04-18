@@ -37,3 +37,4 @@
 # build files and folders
 build
 dist
+bin
