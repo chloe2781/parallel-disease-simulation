@@ -1,22 +1,24 @@
 #include "helpers.h"
+#include <thread>
+#include <atomic>
 // I suggest testing with this set to 1 first!
 #define MAX_THREADS 8 // subject to change
 
-std::atomic<int> max_variant = 1;
+std::atomic<int> max_variant(1);
 
 // Mutations are kept within the *variants list
 // If a new mutation is made, it is modified from its parent variant and added into the list of mutations
-Variant mutate(Variant *variants, int i){
+int mutate(Variant *variants, int i){
     max_variant += 1;
-    Variant new_variant;
-    new_variant.variant_num = max_variant;
+    Variant &new_variant = variants[max_variant];
+    new_variant.variant_num.store(max_variant);
     new_variant.recovery_time = addPossibleVariationInt(variants[i].recovery_time);
     new_variant.mortality_rate = addPossibleVariation(variants[i].mutation_rate);
     new_variant.infection_rate = addPossibleVariation(variants[i].infection_rate);
     new_variant.mutation_rate = addPossibleVariation(variants[i].mutation_rate);
     new_variant.immunity = addPossibleVariationInt(variants[i].immunity);
-    variants[new_variant.variant_num] = new_variant;
-    return new_variant;
+//    variants[max_variant] = new_variant;
+    return max_variant;
 }
 
 // function to move ONE person within a fixed distance
@@ -30,9 +32,6 @@ void move(Person *people, int start, int end) {
         // Generate random offsets for x and y coordinates within the movement range
         int offsetX = randRange(MAX_MOVEMENT);
         int offsetY = randRange(MAX_MOVEMENT);
-
-        std::cout << offsetX << std::endl;
-        std::cout << offsetY << std::endl;
 
         // Update the x and y coordinates of the person, wrapping around the world size
         people[i].x = (people[i].x + offsetX);
@@ -90,21 +89,23 @@ void die(Person *people, Variant *variants, int start, int end, int curr_day) {
     //for (int i = 0; i < MAX_STARTING_POPULATION; i++) { //removed to thread
     for (int i = start; i < end; i++) {
 
-      if (people[i].diseased) {
+      if (people[i].diseased && people[i].dead == false) {
         people[i].day_infected++; // increment time to account for current day we're on
-
-        int days_sick = curr_day - people[i].day_infected;
-        if (days_sick >= variants[people[i].variant].recovery_time) {
+        float prob = rand01();
+          if (prob < variants[people[i].variant].mortality_rate) {
+            people[i].dead = true;
+            continue;
+          }
+//        int days_sick = curr_day - people[i].day_infected;
+        if (people[i].day_infected >= variants[people[i].variant].recovery_time) {
           people[i].diseased = false;
           people[i].immunity = variants[people[i].variant].immunity;
+          people[i].day_infected = 0;
         }
-        float prob = rand01();
-        if (prob < variants[people[i].variant].mortality_rate) {
-          people[i].dead = true;
-        }
+      }else if (people[i].immunity > 0){
+        people[i].immunity--;
       }
     }
-
 }
 
 //function for ONE person to infect others within infection radius
@@ -121,7 +122,7 @@ void infect(Person *people, Variant *variants, int start, int end, int curr_day)
             for (int j = 0; j < MAX_STARTING_POPULATION; j++) {
                 if (i != j) {
 
-                    Variant v = variants[people[i].variant];
+                    Variant& v = variants[people[i].variant];
 
                     if (calculateDistance(people[i], people[j]) <= v.infection_range) {
 
@@ -132,7 +133,7 @@ void infect(Person *people, Variant *variants, int start, int end, int curr_day)
                             people[j].variant = v.variant_num; //either variant from person infected, or small variation
                             float mutationProb = rand01();
                             if (mutationProb < v.mutation_rate) { //small chance of variation
-                                people[j].variant = mutate(variants, v.variant_num).variant_num;
+                                people[j].variant = mutate(variants, v.variant_num);
                             }
                         }
                     }
@@ -155,6 +156,7 @@ void update_all_people(Person *people, Variant *variants, int curr_day) {
     int end = (i+1) * (MAX_STARTING_POPULATION/MAX_THREADS);
     t[i] = std::thread(die, people, variants, start, end, curr_day);
   }
+
   for (int i = 0; i < MAX_THREADS; i++) {
     t[i].join();
   }
@@ -165,6 +167,7 @@ void update_all_people(Person *people, Variant *variants, int curr_day) {
     int end = (i+1) * (MAX_STARTING_POPULATION/MAX_THREADS);
     t[i] = std::thread(move, people, start, end);
   }
+
   for (int i = 0; i < MAX_THREADS; i++) {
     t[i].join();
   }
@@ -178,14 +181,16 @@ void update_all_people(Person *people, Variant *variants, int curr_day) {
   for (int i = 0; i < MAX_THREADS; i++) {
     t[i].join();
   }
-  }
+}
 
 
 // the main function
-void disease_simulation(Person *people, Variant *variants, int end_day){ //end day is passed from config.end_day
+int disease_simulation(Person *people, Variant *variants, int end_day){ //end day is passed from config.end_day
   for (int i = 0; i < end_day; i++) {
     update_all_people(people, variants, i);
   }
+  int max_var = int(max_variant);
+  return max_var;
 }
 
 
