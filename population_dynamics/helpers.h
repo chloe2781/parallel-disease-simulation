@@ -15,6 +15,19 @@
 #define MAX_STARTING_INFECTED 3
 #define NUM_TIME_PERIODS 5
 
+// data structure to store configuration about the game
+// can be altered to test different factors
+typedef struct {
+  int end_day;             //day at which simulation ends
+  int start_population;    //starting population for simulation
+  int starting_infected;   //start number of people infected
+  int length;              //board length
+  int width;               //board width
+  bool masking;            //whether there is masking enabled
+  bool vaccination;        //whether there is vaccination enabled
+  bool social_distancing;  //whether there is social distancing enabled
+} GameConfig;
+
 // data structure to store information about a person
 typedef struct {
     std::atomic<int> x;    // x location in grid
@@ -52,3 +65,10 @@ int randRange(int max_range){
 int randRangePos(int max_range){return rand() % max_range;}
 // random float in range [0,1]
 float rand01(){return (float)rand() / (float)RAND_MAX;}
+
+// Function to calculate distance between two people
+double calculateDistance(const Person& person1, const Person& person2) {
+    int dx = person1.x - person2.x;
+    int dy = person1.y - person2.y;
+    return std::sqrt(dx * dx + dy * dy);
+}
