@@ -13,7 +13,6 @@
 #define NUM_TIME_PERIODS 25
 #define MAX_MOVEMENT 8
 #define MAX_STARTING_INFECTED 3
-#define NUM_TIME_PERIODS 5
 
 // data structure to store configuration about the game
 // can be altered to test different factors
@@ -71,4 +70,16 @@ double calculateDistance(const Person& person1, const Person& person2) {
     int dx = person1.x - person2.x;
     int dy = person1.y - person2.y;
     return std::sqrt(dx * dx + dy * dy);
+}
+
+float addPossibleVariation(float num) {
+    float variation = rand01();
+    int multiplier = rand01() >= .5 ? 1 : -1;
+    return num + (num * variation * multiplier);
+}
+
+float addPossibleVariationInt(int num) {
+    float variation = rand01();
+    int multiplier = rand01() >= .5 ? 1 : -1;
+    return int(num + (num * variation * multiplier));
 }

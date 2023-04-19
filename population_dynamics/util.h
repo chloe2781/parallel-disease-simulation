@@ -2,6 +2,23 @@
 // I suggest testing with this set to 1 first!
 #define MAX_THREADS 8 // subject to change
 
+std::atomic<int> max_variant = 1;
+
+// Mutations are kept within the *variants list
+// If a new mutation is made, it is modified from its parent variant and added into the list of mutations
+Variant mutate(Variant *variants, int i){
+    max_variant += 1;
+    Variant new_variant;
+    new_variant.variant_num = max_variant;
+    new_variant.recovery_time = addPossibleVariationInt(variants[i].recovery_time);
+    new_variant.mortality_rate = addPossibleVariation(variants[i].mutation_rate);
+    new_variant.infection_rate = addPossibleVariation(variants[i].infection_rate);
+    new_variant.mutation_rate = addPossibleVariation(variants[i].mutation_rate);
+    new_variant.immunity = addPossibleVariationInt(variants[i].immunity);
+    variants[new_variant.variant_num] = new_variant;
+    return new_variant;
+}
+
 // function to move ONE person within a fixed distance
 // randomly move on both axes
 // edges are wrapped based on world size
@@ -104,15 +121,19 @@ void infect(Person *people, Variant *variants, int start, int end, int curr_day)
             for (int j = 0; j < MAX_STARTING_POPULATION; j++) {
                 if (i != j) {
 
-                    variant = variants[people[i].variant]
+                    Variant v = variants[people[i].variant];
 
-                    if (calculateDistance(people[i], people[j]) <= variant.infection_radius) {
+                    if (calculateDistance(people[i], people[j]) <= v.infection_range) {
 
-                        float prob = rand01();
-                        if (prob < variant.infection_rate) {
+                        float infectionProb = rand01();
+                        if (infectionProb < v.infection_rate) {
                             people[j].diseased = true;
                             people[j].day_infected = curr_day;
-                            people[j].variant = people[i].variant; //THIS PART?????? do we need to mutate w small prob here
+                            people[j].variant = v.variant_num; //either variant from person infected, or small variation
+                            float mutationProb = rand01();
+                            if (mutationProb < v.mutation_rate) { //small chance of variation
+                                people[j].variant = mutate(variants, v.variant_num).variant_num;
+                            }
                         }
                     }
                 }
@@ -157,32 +178,16 @@ void update_all_people(Person *people, Variant *variants, int curr_day) {
   for (int i = 0; i < MAX_THREADS; i++) {
     t[i].join();
   }
+  }
 
+
+// the main function
+void disease_simulation(Person *people, Variant *variants, int end_day){ //end day is passed from config.end_day
+  for (int i = 0; i < end_day; i++) {
+    update_all_people(people, variants, i);
+  }
 }
 
-
-
-////-------------------------------
-
-
-
-//when an infection is transferred, there is a small chance for the traits of this infection to change.
-//hash variant data to keep track of what variants are where (and resolve memory issues)
-//if infected by a variant and survive, gain immunity
-//infections from spreading phase overwrite each other
-//immunity is per infection
-//might need both variants and people, not sure yet
-void mutate(Variant *variants, Person *people){
-
-
-}
-
-//is this how we should do mutations??? or should we do it in the infect function?
-//launch threads and update all variants
-void update_all_variants(Variant *variants){
-
-
-}
 
 // -------------- HW 1 CODE ----------------
 
@@ -323,11 +328,3 @@ void update_all_variants(Variant *variants){
 //}
 
 // -------------- HW 1 CODE ----------------
-
-// the main function
-void disease_simulation(Person *people, Variant *variants, int end_day){ //end day is passed from config.end_day
-  for (int i = 0; i < end_day; i++) {
-    update_all_people(people, variants, i);
-    update_all_variants(variants); //maybe??
-  }
-}

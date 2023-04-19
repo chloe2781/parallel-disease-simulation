@@ -39,10 +39,10 @@ int main() {
     // Setting up game config which can account for different factors of simulation run
     GameConfig config;
     config.end_day = NUM_TIME_PERIODS;
-    config.population = MAX_STARTING_POPULATION; assuming MAX_STARTING_POPULATION is defined in helper.h
-    config.starting_infected = MAX_STARTING_INFECTED
-    config.length = BOARD_LENGTH
-    config.width = BOARD_WIDTH
+    config.start_population = MAX_STARTING_POPULATION; //assuming MAX_STARTING_POPULATION is defined in helper.h
+    config.starting_infected = MAX_STARTING_INFECTED;
+    config.length = BOARD_LENGTH;
+    config.width = BOARD_WIDTH;
     //these can change depending on which simulation we run
     config.masking = false;
     config.vaccination = false;
@@ -82,7 +82,7 @@ int main() {
     }
 
     // Move the people within a fixed distance
-    move(people);
+    move(people, 0, 17);
 
     // ... code to do something with the updated people ...
     std::cout << " ----------------------------------------- " << std::endl;
