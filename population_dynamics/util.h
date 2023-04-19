@@ -69,20 +69,18 @@ void move(Person *people, int start, int end) {
 //Immunity is temporary dictated by virus stats
 // NEW: edited to work with threads
 
-void die(Person *people, Variant *variants, int start, int end) {
+void die(Person *people, Variant *variants, int start, int end, int curr_day) {
     //for (int i = 0; i < MAX_STARTING_POPULATION; i++) { //removed to thread
     for (int i = start; i < end; i++) {
 
       if (people[i].diseased) {
         people[i].day_infected++; // increment time to account for current day we're on
 
-        if (people[i].day_infected >= variants[people[i].variant].recovery_time) {
+        int days_sick = curr_day - people[i].day_infected;
+        if (days_sick >= variants[people[i].variant].recovery_time) {
           people[i].diseased = false;
-          people[i].day_infected = -1;
-          people[i].variant = -1;
           people[i].immunity = variants[people[i].variant].immunity;
         }
-
         float prob = rand01();
         if (prob < variants[people[i].variant].mortality_rate) {
           people[i].dead = true;
@@ -92,14 +90,6 @@ void die(Person *people, Variant *variants, int start, int end) {
 
 }
 
-
-// Function to calculate distance between two people
-double calculateDistance(const Person& person1, const Person& person2) {
-    int dx = person1.x - person2.x;
-    int dy = person1.y - person2.y;
-    return std::sqrt(dx * dx + dy * dy);
-}
-
 //function for ONE person to infect others within infection radius
 
 //for all people, check if they are within infection radius of infected person
@@ -107,7 +97,7 @@ double calculateDistance(const Person& person1, const Person& person2) {
 //if random val is less than infection rate, infect person
 //if person is already infected, do nothing
 //if person is already dead, do nothing
-void infect(Person *people, Variant *variants, int start, int end){
+void infect(Person *people, Variant *variants, int start, int end, int curr_day){
 
     for (int i = start; i < end; i++) {
         if (people[i].diseased) {
@@ -121,7 +111,7 @@ void infect(Person *people, Variant *variants, int start, int end){
                         float prob = rand01();
                         if (prob < variant.infection_rate) {
                             people[j].diseased = true;
-                            people[j].day_infected = 0; //maybe always will be 0 for each newly infected person
+                            people[j].day_infected = curr_day;
                             people[j].variant = people[i].variant; //THIS PART?????? do we need to mutate w small prob here
                         }
                     }
@@ -129,15 +119,24 @@ void infect(Person *people, Variant *variants, int start, int end){
             }
         }
     }
-
 }
 
 
 // Updates the population for all people
 // people will move, die, and infect others if still alive
-void update_all_people(Person *people, Variant *variants) {
+void update_all_people(Person *people, Variant *variants, int curr_day) {
 
   std::thread t[MAX_THREADS];
+
+  // update people if people died
+  for (int i = 0; i < MAX_THREADS; i++) {
+    int start = i * (MAX_STARTING_POPULATION/MAX_THREADS);
+    int end = (i+1) * (MAX_STARTING_POPULATION/MAX_THREADS);
+    t[i] = std::thread(die, people, variants, start, end, curr_day);
+  }
+  for (int i = 0; i < MAX_THREADS; i++) {
+    t[i].join();
+  }
 
   // move all people
   for (int i = 0; i < MAX_THREADS; i++) {
@@ -149,21 +148,11 @@ void update_all_people(Person *people, Variant *variants) {
     t[i].join();
   }
 
-  // update people if people died
-  for (int i = 0; i < MAX_THREADS; i++) {
-    int start = i * (MAX_STARTING_POPULATION/MAX_THREADS);
-    int end = (i+1) * (MAX_STARTING_POPULATION/MAX_THREADS);
-    t[i] = std::thread(die, people, variants, start, end);
-  }
-  for (int i = 0; i < MAX_THREADS; i++) {
-    t[i].join();
-  }
-
   // infect people
   for (int i = 0; i < MAX_THREADS; i++) {
     int start = i * (MAX_STARTING_POPULATION/MAX_THREADS);
     int end = (i+1) * (MAX_STARTING_POPULATION/MAX_THREADS);
-    t[i] = std::thread(infect, people, variants, start, end);
+    t[i] = std::thread(infect, people, variants, start, end, curr_day);
   }
   for (int i = 0; i < MAX_THREADS; i++) {
     t[i].join();
@@ -336,11 +325,9 @@ void update_all_variants(Variant *variants){
 // -------------- HW 1 CODE ----------------
 
 // the main function
-void disease_simulation(Person *people, Variant *variants){
-
-  for (int i = 0; i < NUM_TIME_PERIODS; i++) {
-    update_all_people(people, variants);
+void disease_simulation(Person *people, Variant *variants, int end_day){ //end day is passed from config.end_day
+  for (int i = 0; i < end_day; i++) {
+    update_all_people(people, variants, i);
     update_all_variants(variants); //maybe??
   }
-
 }

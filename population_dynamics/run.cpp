@@ -35,14 +35,27 @@ int main() {
     // Initialize the random number generator
     std::srand(std::time(0));
     // Seed the random number generator with current time
-    Person people[MAX_STARTING_POPULATION]; // assuming MAX_STARTING_POPULATION is defined in helper.h
+
+    // Setting up game config which can account for different factors of simulation run
+    GameConfig config;
+    config.end_day = NUM_TIME_PERIODS;
+    config.population = MAX_STARTING_POPULATION; assuming MAX_STARTING_POPULATION is defined in helper.h
+    config.starting_infected = MAX_STARTING_INFECTED
+    config.length = BOARD_LENGTH
+    config.width = BOARD_WIDTH
+    //these can change depending on which simulation we run
+    config.masking = false;
+    config.vaccination = false;
+    config.social_distancing = false;
+
+    Person people[config.start_population];
 
     // ... code to initialize people ...
 
     // Initialize the people array
-    for (int i = 0; i < MAX_STARTING_POPULATION; i++) {
-        people[i].x = randRangePos(BOARD_LENGTH); // assuming BOARD_LENGTH is defined in helper.h
-        people[i].y = randRangePos(BOARD_WIDTH);  // assuming BOARD_WIDTH is defined in helper.h
+    for (int i = 0; i < config.start_population; i++) {
+        people[i].x = randRangePos(config.length); // assuming BOARD_LENGTH is defined in helper.h
+        people[i].y = randRangePos(config.width);  // assuming BOARD_WIDTH is defined in helper.h
         people[i].id = i;                      // set identifier for the person as the index
         people[i].diseased = false;            // set initial disease status as not diseased
         people[i].day_infected = -1;           // set initial day infected as -1 (not infected)
@@ -54,15 +67,15 @@ int main() {
 
     // Generate random indexes for people to be infected
     // moved from util.h because we only run this once
-    for (int i = 0; i < MAX_STARTING_INFECTED; i++) {
-        int id = randRangePos(MAX_STARTING_POPULATION);
+    for (int i = 0; i < config.starting_infected; i++) {
+        int id = randRangePos(config.starting_infected);
         people[id].diseased = true;
         people[id].day_infected = 0;
         people[id].variant = 0;
     }
 
 
-    for (int i = 0; i < MAX_STARTING_POPULATION; i++) {
+    for (int i = 0; i < config.start_population; i++) {
         std::cout << "Person " << i << " - ID: " << people[i].id << ", X: " << people[i].x
                 << ", Y: " << people[i].y << ", Diseased: " << (people[i].diseased ? "Yes" : "No")
                 << ", Day Infected: " << people[i].day_infected << std::endl;
@@ -74,7 +87,7 @@ int main() {
     // ... code to do something with the updated people ...
     std::cout << " ----------------------------------------- " << std::endl;
 
-    for (int i = 0; i < MAX_STARTING_POPULATION; i++) {
+    for (int i = 0; i < config.start_population; i++) {
         std::cout << "Person " << i << " - ID: " << people[i].id << ", X: " << people[i].x
                 << ", Y: " << people[i].y << ", Diseased: " << (people[i].diseased ? "Yes" : "No")
                 << ", Day Infected: " << people[i].day_infected << std::endl;
