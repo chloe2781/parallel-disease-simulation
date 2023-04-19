@@ -13,6 +13,7 @@
 #define NUM_TIME_PERIODS 25
 #define MAX_MOVEMENT 8
 #define MAX_STARTING_INFECTED 3
+#define NUM_TIME_PERIODS 5
 
 // data structure to store information about a person
 typedef struct {
@@ -22,7 +23,7 @@ typedef struct {
     bool diseased;         // whether the person currently is infected (<14 days since day_infected)
     int day_infected;      // latest timestep at which individual was infected
     bool dead;             // whether the person is dead
-    int variant;       // variant of the disease the person is infected with
+    int variant;           // variant of the disease the person is infected with
     int immunity;          // number of days until the person is no longer immune
 } Person;
 

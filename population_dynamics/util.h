@@ -1,38 +1,15 @@
 #include "helpers.h"
 // I suggest testing with this set to 1 first!
-#define MAX_THREADS 8
-#define MAX_STARTING_POPULATION 1000000
-#define BOARD_LENGTH 256
-#define BOARD_WIDTH 256
+#define MAX_THREADS 8 // subject to change
 
-
-// function to initialize infection
-// randomly select a person to be infected
-// set their infected status to true
-// set their infection time to 0
-void initialize_infection(Person *people) {
-    // Generate random indexes for people to be infected
-    for (int i = 0; i < MAX_STARTING_INFECTED; i++) {
-        int id = randRangePos(MAX_STARTING_POPULATION);
-        people[id].diseased = true;
-        people[id].day_infected = 0;
-        people[id].variant = 0;
-    }
-}
-
-// function to move people within a fixed distance
-
+// function to move ONE person within a fixed distance
 // randomly move on both axes
 // edges are wrapped based on world size
-// SHOULD WORK
-void move(Person *people) {
+// SHOULD WORK -- NEW: edited to work with threads
+void move(Person *people, int start, int end) {
+    //for (int i = 0; i < MAX_STARTING_POPULATION; i++) { //removed to thread
 
-//    for (int i = 0; i < TOTAL_POPULATION; i++){
-//        people[i].x += randRange
-//        people[i].y
-//    }
-
-    for (int i = 0; i < MAX_STARTING_POPULATION; i++) {
+    for (int i = start; i < end; i++) {
         // Generate random offsets for x and y coordinates within the movement range
         int offsetX = randRange(MAX_MOVEMENT);
         int offsetY = randRange(MAX_MOVEMENT);
@@ -51,85 +28,61 @@ void move(Person *people) {
         if (people[i].y >= BOARD_WIDTH) people[i].x = BOARD_WIDTH -1;
         else if (people[i].y <= 0) people[i].y = 1;
     }
-
 }
+
+// ---------------------------------
+
+//COMMENTED OUT BELOW bc wasn't used and we can just check in each function that needs it
+// we would have to call this on every thread anyway, so i don't think it would help like i thought
 
 //function to get all the currently infected people
-
 // for all people, check if they are currently infected
 // store a list tuples of their positions (x,y)
-std::list<std::tuple<int, int>> get_infected(Person* people) {
-    //list<tuple<int, int>> infected;
+// want to calculate only once per time period so doesn't need to be parallel?
+// get after people move, so we have their current coordinates
+//std::list<std::tuple<int, int>> get_infected(Person* people) {
+//    //list<tuple<int, int>> infected;
+//    //for (int i = 0; i < TOTAL_POPULATION; i++){
+//    //    if (people[i].infected == true){
+//    //        infected.push_back(make_tuple(people[i].x, people[i].y));
+//    //}
+//    //return infected;
+//
+//    std::list<std::tuple<int, int>> infected;
+//
+//    for (int i = 0; i < MAX_STARTING_POPULATION; i++) {
+//        if (people[i].diseased) { // Check if person is currently infected
+//            infected.push_back(std::make_tuple(people[i].x.load(), people[i].y.load())); // Add position (x, y) as tuple
+//        }
+//    }
+//
+//    return infected;
+//}
 
-    //for (int i = 0; i < TOTAL_POPULATION; i++){
-    //    if (people[i].infected == true){
-    //        infected.push_back(make_tuple(people[i].x, people[i].y));
-    //}
+// ---------------------------------
 
-    //return infected;
-
-    std::list<std::tuple<int, int>> infected;
-
-    for (int i = 0; i < MAX_STARTING_POPULATION; i++) {
-        if (people[i].diseased) { // Check if person is currently infected
-            infected.push_back(std::make_tuple(people[i].x.load(), people[i].y.load())); // Add position (x, y) as tuple
-        }
-    }
-
-    return infected;
-}
-
-// Function to calculate distance between two people
-double calculateDistance(const Person& person1, const Person& person2) {
-    int dx = person1.x - person2.x;
-    int dy = person1.y - person2.y;
-    return std::sqrt(dx * dx + dy * dy);
-}
-
-//function to infect population based on currently infected
-//call get_infected to get list of infected people
-//for all people, check if they are within infection radius of infected people
-//if they are, generate a random val btw 0 and 1 and compare to infection rate
-//if random val is less than infection rate, infect person
-//if person is already infected, do nothing
-//if person is already dead, do nothing
-void infect(Person *people){
-
-    //list<tuple<int, int>> infected = get_infected(people);
-
-
-}
-
-//when an infection is transferred, there is a small chance for the traits of this infection to change.
-//hash variant data to keep track of what variants are where (and resolve memory issues)
-//if infected by a variant and survive, gain immunity
-//infections from spreading phase overwrite each other
-//immunity is per infection
-//might need both variants and people, not sure yet
-void mutate(Variant *variants, Person *people){
-
-    //for (int i = 0; i < TOTAL_POPULATION; i++){
-    //}
-
-}
-
-
-// function that simulates diseased people dying based on variant mortality rate
+// function that simulates ONE diseased person dying based on variant mortality rate
 // generate a random val btw 0 and 1 and compare to mortality rate
 //also need to consider if we gain immunity??
 
 //Those who survive a disease long enough gain immunity.
 //Immunity is temporary dictated by virus stats
-void die(Person *people, Variant *variants){
+// NEW: edited to work with threads
 
-    for (int i = 0; i < MAX_STARTING_POPULATION; i++) {
+void die(Person *people, Variant *variants, int start, int end) {
+    //for (int i = 0; i < MAX_STARTING_POPULATION; i++) { //removed to thread
+    for (int i = start; i < end; i++) {
+
       if (people[i].diseased) {
+        people[i].day_infected++; // increment time to account for current day we're on
+
         if (people[i].day_infected >= variants[people[i].variant].recovery_time) {
           people[i].diseased = false;
           people[i].day_infected = -1;
           people[i].variant = -1;
           people[i].immunity = variants[people[i].variant].immunity;
         }
+
         float prob = rand01();
         if (prob < variants[people[i].variant].mortality_rate) {
           people[i].dead = true;
@@ -139,6 +92,110 @@ void die(Person *people, Variant *variants){
 
 }
 
+
+// Function to calculate distance between two people
+double calculateDistance(const Person& person1, const Person& person2) {
+    int dx = person1.x - person2.x;
+    int dy = person1.y - person2.y;
+    return std::sqrt(dx * dx + dy * dy);
+}
+
+//function for ONE person to infect others within infection radius
+
+//for all people, check if they are within infection radius of infected person
+//if they are, generate a random val btw 0 and 1 and compare to infection rate
+//if random val is less than infection rate, infect person
+//if person is already infected, do nothing
+//if person is already dead, do nothing
+void infect(Person *people, Variant *variants, int start, int end){
+
+    for (int i = start; i < end; i++) {
+        if (people[i].diseased) {
+            for (int j = 0; j < MAX_STARTING_POPULATION; j++) {
+                if (i != j) {
+
+                    variant = variants[people[i].variant]
+
+                    if (calculateDistance(people[i], people[j]) <= variant.infection_radius) {
+
+                        float prob = rand01();
+                        if (prob < variant.infection_rate) {
+                            people[j].diseased = true;
+                            people[j].day_infected = 0; //maybe always will be 0 for each newly infected person
+                            people[j].variant = people[i].variant; //THIS PART?????? do we need to mutate w small prob here
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+}
+
+
+// Updates the population for all people
+// people will move, die, and infect others if still alive
+void update_all_people(Person *people, Variant *variants) {
+
+  std::thread t[MAX_THREADS];
+
+  // move all people
+  for (int i = 0; i < MAX_THREADS; i++) {
+    int start = i * (MAX_STARTING_POPULATION/MAX_THREADS);
+    int end = (i+1) * (MAX_STARTING_POPULATION/MAX_THREADS);
+    t[i] = std::thread(move, people, start, end);
+  }
+  for (int i = 0; i < MAX_THREADS; i++) {
+    t[i].join();
+  }
+
+  // update people if people died
+  for (int i = 0; i < MAX_THREADS; i++) {
+    int start = i * (MAX_STARTING_POPULATION/MAX_THREADS);
+    int end = (i+1) * (MAX_STARTING_POPULATION/MAX_THREADS);
+    t[i] = std::thread(die, people, variants, start, end);
+  }
+  for (int i = 0; i < MAX_THREADS; i++) {
+    t[i].join();
+  }
+
+  // infect people
+  for (int i = 0; i < MAX_THREADS; i++) {
+    int start = i * (MAX_STARTING_POPULATION/MAX_THREADS);
+    int end = (i+1) * (MAX_STARTING_POPULATION/MAX_THREADS);
+    t[i] = std::thread(infect, people, variants, start, end);
+  }
+  for (int i = 0; i < MAX_THREADS; i++) {
+    t[i].join();
+  }
+
+}
+
+
+
+////-------------------------------
+
+
+
+//when an infection is transferred, there is a small chance for the traits of this infection to change.
+//hash variant data to keep track of what variants are where (and resolve memory issues)
+//if infected by a variant and survive, gain immunity
+//infections from spreading phase overwrite each other
+//immunity is per infection
+//might need both variants and people, not sure yet
+void mutate(Variant *variants, Person *people){
+
+
+}
+
+//is this how we should do mutations??? or should we do it in the infect function?
+//launch threads and update all variants
+void update_all_variants(Variant *variants){
+
+
+}
+
+// -------------- HW 1 CODE ----------------
 
 //// function to simulate population change for one community of one species
 ////
@@ -266,20 +323,6 @@ void die(Person *people, Variant *variants){
 //  }
 //}
 
-// the main function
-void disease_simulation(Person *people, Variant *variants){
-
-  for (int i = 0; i < NUM_TIME_PERIODS; i++) {
-    move(people);
-    infect(people);
-    recover(people);
-    die(people);
-    mutate(variants);
-
-  }
-
-}
-
 //void population_dynamics(Species_Community *communities){
 //  //
 //  // # TODO
@@ -289,3 +332,15 @@ void disease_simulation(Person *people, Variant *variants){
 //    update_all_populations(communities);
 //  }
 //}
+
+// -------------- HW 1 CODE ----------------
+
+// the main function
+void disease_simulation(Person *people, Variant *variants){
+
+  for (int i = 0; i < NUM_TIME_PERIODS; i++) {
+    update_all_people(people, variants);
+    update_all_variants(variants); //maybe??
+  }
+
+}

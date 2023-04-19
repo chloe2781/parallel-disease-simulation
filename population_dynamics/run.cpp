@@ -32,44 +32,54 @@ int main() {
 //                 communities[community_id].population << "]" << std::endl;
 //  }
 
-  // Initialize the random number generator
-  std::srand(std::time(0));
-  // Seed the random number generator with current time
-  Person people[MAX_STARTING_POPULATION]; // assuming MAX_STARTING_POPULATION is defined in helper.h
+    // Initialize the random number generator
+    std::srand(std::time(0));
+    // Seed the random number generator with current time
+    Person people[MAX_STARTING_POPULATION]; // assuming MAX_STARTING_POPULATION is defined in helper.h
 
-  // ... code to initialize people ...
+    // ... code to initialize people ...
 
-  // Initialize the people array
-  for (int i = 0; i < MAX_STARTING_POPULATION; i++) {
-      people[i].x = randRangePos(BOARD_LENGTH); // assuming BOARD_LENGTH is defined in helper.h
-      people[i].y = randRangePos(BOARD_WIDTH);  // assuming BOARD_WIDTH is defined in helper.h
-      people[i].id = i;                      // set identifier for the person as the index
-      people[i].diseased = false;            // set initial disease status as not diseased
-      people[i].day_infected = -1;           // set initial day infected as -1 (not infected)
-      people[i].dead = false;                // set initial dead status as not dead
-      people[i].variant = -1;                 // set initial variant as -1 (not infected)
-      people[i].immunity = 0;                // set initial immunity as 0 (not immune)
-  }
+    // Initialize the people array
+    for (int i = 0; i < MAX_STARTING_POPULATION; i++) {
+        people[i].x = randRangePos(BOARD_LENGTH); // assuming BOARD_LENGTH is defined in helper.h
+        people[i].y = randRangePos(BOARD_WIDTH);  // assuming BOARD_WIDTH is defined in helper.h
+        people[i].id = i;                      // set identifier for the person as the index
+        people[i].diseased = false;            // set initial disease status as not diseased
+        people[i].day_infected = -1;           // set initial day infected as -1 (not infected)
+        people[i].dead = false;                // set initial dead status as not dead
+        people[i].variant = -1;                 // set initial variant as -1 (not infected)
+        people[i].immunity = 0;                // set initial immunity as 0 (not immune)
+    }
 
-  for (int i = 0; i < MAX_STARTING_POPULATION; i++) {
-      std::cout << "Person " << i << " - ID: " << people[i].id << ", X: " << people[i].x
+
+    // Generate random indexes for people to be infected
+    // moved from util.h because we only run this once
+    for (int i = 0; i < MAX_STARTING_INFECTED; i++) {
+        int id = randRangePos(MAX_STARTING_POPULATION);
+        people[id].diseased = true;
+        people[id].day_infected = 0;
+        people[id].variant = 0;
+    }
+
+
+    for (int i = 0; i < MAX_STARTING_POPULATION; i++) {
+        std::cout << "Person " << i << " - ID: " << people[i].id << ", X: " << people[i].x
                 << ", Y: " << people[i].y << ", Diseased: " << (people[i].diseased ? "Yes" : "No")
                 << ", Day Infected: " << people[i].day_infected << std::endl;
-  }
+    }
 
-  // Move the people within a fixed distance
-  move(people);
+    // Move the people within a fixed distance
+    move(people);
 
-  // ... code to do something with the updated people ...
-  std::cout << " ----------------------------------------- " << std::endl;
+    // ... code to do something with the updated people ...
+    std::cout << " ----------------------------------------- " << std::endl;
 
-  for (int i = 0; i < MAX_STARTING_POPULATION; i++) {
-      std::cout << "Person " << i << " - ID: " << people[i].id << ", X: " << people[i].x
+    for (int i = 0; i < MAX_STARTING_POPULATION; i++) {
+        std::cout << "Person " << i << " - ID: " << people[i].id << ", X: " << people[i].x
                 << ", Y: " << people[i].y << ", Diseased: " << (people[i].diseased ? "Yes" : "No")
                 << ", Day Infected: " << people[i].day_infected << std::endl;
-  }
+    }
 
-  return 0;
-
+    return 0;
 
 }
