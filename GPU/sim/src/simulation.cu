@@ -204,14 +204,14 @@ __global__ void infectPeople(Variant* variants, int* positions, int *variant_cou
         //nothing to do
         return;
     }
-
-    int our_position = positions[tid];
     if(variant[tid] < 0){
         //uninfected, cannot infect anyone
         return;
     }
+    //get the variant of the person
     Variant our_variant = variants[variant[tid]];
-
+    //get the position of the person
+    int our_position = positions[tid];
     //iterate over everyone, comparing them to the tid'th person to see if they are infected
     int stride = blockDim.x * gridDim.x;
     for(int i = 0; i < POPULATION; i += stride)
@@ -254,16 +254,23 @@ __device__ int createVariant(Variant *variants, int *variant_count, int *variant
     //create the new variant, based on the index of the source variant
     Variant new_variant = variants[source_variant];
     //change the parameters of the new variant by up to MUTATION_RANGE
-    new_variant.recovery_time *= (1 + randomFloat() * mutation_range * 2 - mutation_range);
     new_variant.mortality_rate *= (1 + randomFloat() * mutation_range * 2 - mutation_range);
     new_variant.infection_rate *= (1 + randomFloat() * mutation_range * 2 - mutation_range);
     new_variant.mutation_rate *= (1 + randomFloat() * mutation_range * 2 - mutation_range);
+
+    float recovery_change = randomFloat() * mutation_range * 2 - mutation_range;
     float immunity_change = randomFloat() * mutation_range * 2 - mutation_range;
-    //ceiling it if positive, floor if negative, this way it will always change by at least 1
-    new_variant.immunity = (immunity_change > 0) ? ceil(immunity_change) : floor(immunity_change);
+    //floor a negative recovery change, ceil a positive recovery change
+    new_variant.recovery_time += (recovery_change < 0 ? floor(recovery_change) : ceil(recovery_change));
+    new_variant.immunity_time += (immunity_change < 0 ? floor(immunity_change) : ceil(immunity_change));
+    //prevent negative recovery time or immunity time
+    new_variant.recovery_time = max(new_variant.recovery_time, 1);
+    new_variant.immunity_time = max(new_variant.immunity_time, 1);
     //put this variant in the variants array, increment the variant count, and return the index of the new variant
-    variants[*variant_count] = new_variant;
-    return (*variant_count)++;
+    //do this atomically, multiple threads may be trying to create variants at the same time
+    int new_variant_index = atomicAdd(variant_count, 1);
+    variants[new_variant_index] = new_variant;
+    return new_variant_index;
 }
 
 // device function to make a random number
