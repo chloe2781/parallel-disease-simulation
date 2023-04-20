@@ -5,71 +5,282 @@
 #include <curand_kernel.h>
 #include <cstdint>
 #include <cuda_runtime.h>
+#include <string>
+#include <atomic>
+
 //allow use of uint8_t
 
-__host__ void simulation(uint8_t* pos_x, uint8_t* pos_y) {
 
-        // set up GPU memory
-        uint8_t* d_pos_x;
-        uint8_t* d_pos_y;
 
-        int size = sizeof(uint8_t) * POPULATION;
+__host__ void simulation() {
 
-        cudaMalloc((void**)&d_pos_x, size);
-        cudaMalloc((void**)&d_pos_y, size);
+        //Sim Variables
+        //cell_grid[value] = ID of person in cell
+        int* cell_grid_first = new int[GRID_SIZE * GRID_SIZE];
+        int* cell_grid_last = new int[GRID_SIZE * GRID_SIZE];
+        //next[value] = ID of next person in cell, 0 if none
+        int* next = new int[(POPULATION)];
+        //array of variants
+        int variant_count = 0;
+        int variant_cap = 64;
+        Variant* variants = new Variant[variant_cap];
         
-        //ensure that malloc worked
-        if (d_pos_x == NULL){
-            printf("Error allocating GPU memory 1\n");
+
+        //Person Variables, SoA style
+        //x position of each person, may not be needed
+        int* positions = new int[(POPULATION)];
+        //variant[value] = ID of variant, negative value if not infected
+        int* variant = new int[(POPULATION)];
+        //time remaining until immunity expires, 0 or negative if immune
+        int* immunity = new int[(POPULATION)];
+
+        //initialize on host
+        printf("Initializing data\n");
+
+        //show initial values
+        printf("Initial Values:\n");
+        for (int i = 0; i < POPULATION; i++) {
+            printf("Person %d is at (%d, %d)\n", i, positions[i] % GRID_SIZE, positions[i] / GRID_SIZE);
+        }
+        printf("====================================\n");
+
+        //set up GPU memory
+        int *d_cell_grid_first = NULL;
+        int *d_cell_grid_last = NULL;
+        int *d_next = NULL;
+        int *d_variant_count = NULL;
+        int *d_variant_cap = NULL;
+        Variant *d_variants = NULL;
+
+        int *d_position = NULL;
+        int *d_variant = NULL;
+        int *d_immunity = NULL;
+
+        printf("Allocating GPU memory\n");
+        cudaMalloc((void**)&d_cell_grid_first, sizeof(int) * GRID_SIZE * GRID_SIZE);
+        cudaMalloc((void**)&d_cell_grid_last, sizeof(int) * GRID_SIZE * GRID_SIZE);
+        cudaMalloc((void**)&d_next, sizeof(int) * GRID_SIZE * GRID_SIZE);
+        cudaMalloc((void**)&d_variant_count, sizeof(int));
+        cudaMalloc((void**)&d_variant_cap, sizeof(int));
+
+        cudaMalloc((void**)&d_variants, sizeof(Variant) * variant_cap);
+        cudaMalloc((void**)&d_position, sizeof(int) * (POPULATION));
+        cudaMalloc((void**)&d_variant, sizeof(int) * (POPULATION));
+        cudaMalloc((void**)&d_immunity, sizeof(int) * (POPULATION));
+        if (cudaGetLastError() != cudaSuccess){
+            printf("Error allocating GPU memory\n");
             return;
         }
-        if (d_pos_y == NULL){
-            printf("Error allocating GPU memory 2\n");
-            return;
-        }
-        printf("Done\n");
-        //printf("Copying data to GPU...");
-        //copy data into GPU memory
-        cudaMemcpy(d_pos_x, pos_x, sizeof(uint8_t) * POPULATION, cudaMemcpyHostToDevice);
-        cudaMemcpy(d_pos_y, pos_y, sizeof(uint8_t) * POPULATION, cudaMemcpyHostToDevice);
+
+        printf("Copying data to GPU\n");
+        cudaMemcpy(d_cell_grid_first, cell_grid_first, sizeof(int) * GRID_SIZE * GRID_SIZE, cudaMemcpyHostToDevice);
+        cudaMemcpy(d_cell_grid_last, cell_grid_last, sizeof(int) * GRID_SIZE * GRID_SIZE, cudaMemcpyHostToDevice);
+        cudaMemcpy(d_next, next, sizeof(int) * GRID_SIZE * GRID_SIZE, cudaMemcpyHostToDevice);
+        cudaMemcpy(d_variant_count, &variant_count, sizeof(int), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_variant_cap, &variant_cap, sizeof(int), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_variants, variants, sizeof(Variant) * variant_cap, cudaMemcpyHostToDevice);
+
+        cudaMemcpy(d_position, positions, sizeof(int) * (POPULATION), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_variant, variant, sizeof(int) * (POPULATION), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_immunity, immunity, sizeof(int) * (POPULATION), cudaMemcpyHostToDevice);
         if (cudaGetLastError() != cudaSuccess){
             printf("Error copying data to GPU\n");
             return;
         }
-        //printf("Done\n");
 
         // run the gpu code once
-        printf("Before movePeople\n");
-        movePeople<<<BLOCKS, THREADS>>>(d_pos_x, d_pos_y);
+        printf("Launching movePeople\n");
+        movePeople<<<MOVE_BLOCKS, MOVE_THREADS>>>(d_position);
         cudaDeviceSynchronize();
-        printf("After movePeople\n");
-        
-        //copy data back into CPU memory
-        cudaMemcpy(pos_x, d_pos_x, sizeof(uint8_t) * POPULATION, cudaMemcpyDeviceToHost);
-        cudaMemcpy(pos_y, d_pos_y, sizeof(uint8_t) * POPULATION, cudaMemcpyDeviceToHost);
+        printf("Launching infectPeople\n");
+        infectPeople<<<INFECTION_THREADS, INFECTION_THREADS>>>(d_variants, d_position, d_variant_count, d_variant_cap, d_variant, d_immunity);
+        cudaDeviceSynchronize();
         if (cudaGetLastError() != cudaSuccess){
-            printf("Error copying data from GPU\n");
+            printf("Error running kernels\n");
+            return;
+        }
+        printf("Kernels Complete\n");
+
+        printf("Copying data back to CPU\n");
+        cudaMemcpy(cell_grid_first, d_cell_grid_first, sizeof(int) * GRID_SIZE * GRID_SIZE, cudaMemcpyDeviceToHost);
+        cudaMemcpy(cell_grid_last, d_cell_grid_last, sizeof(int) * GRID_SIZE * GRID_SIZE, cudaMemcpyDeviceToHost);
+        cudaMemcpy(next, d_next, sizeof(int) * GRID_SIZE * GRID_SIZE, cudaMemcpyDeviceToHost); 
+        cudaMemcpy(&variant_cap, d_variant_cap, sizeof(int), cudaMemcpyDeviceToHost);
+        cudaMemcpy(variants, d_variants, sizeof(Variant) * variant_cap, cudaMemcpyDeviceToHost);
+        cudaMemcpy(positions, d_position, sizeof(int) * (POPULATION), cudaMemcpyDeviceToHost);
+        cudaMemcpy(variant, d_variant, sizeof(int) * (POPULATION), cudaMemcpyDeviceToHost);
+        cudaMemcpy(immunity, d_immunity, sizeof(int) * (POPULATION), cudaMemcpyDeviceToHost);
+        if (cudaGetLastError() != cudaSuccess){
+            printf("Error copying data back to CPU\n");
             return;
         }
 
+        //print out the positions of all the people
+        printf("====================================\n");
+        printf("Printing results\n");
+        for (int i = 0; i < POPULATION; i++) {
+            printf("Person %d is at (%d, %d)\n", i, positions[i] % GRID_SIZE, positions[i] / GRID_SIZE);
+        }
 
-        //free GPU memory
-        cudaFree(d_pos_x);
-        cudaFree(d_pos_y);
-
+        printf("Freeing GPU memory\n");
+        cudaFree(d_cell_grid_first);
+        cudaFree(d_cell_grid_last);
+        cudaFree(d_next);
+        cudaFree(d_variant_count);
+        cudaFree(d_variant_cap);
+        cudaFree(d_variants);
+        cudaFree(d_position);
+        cudaFree(d_variant);
+        cudaFree(d_immunity);
 }
 
-// copy the relevant data into shared GPU memory
-__global__ void movePeople(uint8_t *pos_x, uint8_t *pos_y) {
-    
-    pos_x[blockIdx.x * blockDim.x + threadIdx.x] = (pos_x[blockIdx.x * blockDim.x + threadIdx.x] + generateCuRand() + GRID_SIZE) % GRID_SIZE;
-    pos_y[blockIdx.x * blockDim.x + threadIdx.x] = (pos_y[blockIdx.x * blockDim.x + threadIdx.x] + generateCuRand() + GRID_SIZE) % GRID_SIZE;
+//TODO: replace two kernel calls with one, and just barrier sync
+// move people randomly around the grid
+__global__ void movePeople(int *positions) {
+    //move every person in the grid a random amount in each direction
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    int stride = blockDim.x * gridDim.x;
+    if(tid > POPULATION){
+        return;
+    }
+    //iterate over people, move them
+    for(int i = tid; i < POPULATION; i += stride){
+        int position = positions[i];
+
+        //get movements
+        int rand_x = randomMovement();
+        int rand_y = randomMovement();
+
+        //add the movements back into position
+        int x = position % GRID_SIZE;
+        int y = position / GRID_SIZE;
+
+        //move, wrap, and stay positive
+        x = (x + rand_x + GRID_SIZE) % GRID_SIZE;
+        y = (y + rand_y + GRID_SIZE) % GRID_SIZE;
+
+        position = y * GRID_SIZE + x;
+        positions[i] = position;
+    }
+}
+
+//this function will update the cell_grids and next arrays
+__global__ void updateCellOccupancy(int *cell_grid_first, int *cell_grid_last, int *positions, int *next){
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    int stride = blockDim.x * gridDim.x;
+    if (tid > POPULATION){
+        return;
+    }
+    //iterate over people, updating the cell grid for each person
+    for(int i = tid; i < POPULATION; i += stride){
+        //get the cell they should be in
+        int cell = positions[i];
+
+        //check if that cell is occupied, if not, occupy it (use atomics)
+        if(atomicCAS(&cell_grid_first[cell], -1, i) == -1){
+            //was not occupied, cell_grid_first[cell] is now i
+            cell_grid_last[cell] = i;
+        } else {
+            while(1){
+                //try to CAS the next[last] to our index
+                if(atomicCAS(&next[cell_grid_last[cell]], -1, i) == -1){
+                    //it worked, which means next[last] is now i
+                    //now update cell_grid_last to be i
+                    //and set next[i] to -1
+                    //other threads will fail to CAS, so no other thread will touch these values
+                    cell_grid_last[cell] = i;
+                    next[i] = -1;
+                    break;
+                }
+            }
+        }
+    }
+}
+
+//this function will update the infection status based on people sharing cells
+__global__ void infectPeople(Variant* variants, int* positions, int *variant_count, int *variant_cap, int* variant, int* immunity) {
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    if (tid > POPULATION){
+        //nothing to do
+        return;
+    }
+
+    int our_position = positions[tid];
+    if(variant[tid] < 0){
+        //uninfected, cannot infect anyone
+        return;
+    }
+    Variant our_variant = variants[variant[tid]];
+
+    //iterate over everyone, comparing them to the tid'th person to see if they are infected
+    int stride = blockDim.x * gridDim.x;
+    for(int i = 0; i < POPULATION; i += stride)
+    {
+        //check if the person is in the same cell as us
+        if(positions[i] == our_position){
+            //check if infection occurs
+            if(immunity[i] < 1 && randomFloat() < our_variant.infection_rate){
+                //infection occurs, check for mutation
+                if(randomFloat() < our_variant.mutation_rate){
+                    //mutation occurs, create a new variant
+                    int new_variant = createVariant(variants, variant_count, variant_cap, variant[tid]);
+                    variant[i] = new_variant;
+                } else {
+                    //congrats you caught the same variant
+                    variant[i] = variant[tid];
+                }
+            } //lucky them
+        }
+
+    }
+}
+
+//device function to create a variant
+__device__ int createVariant(Variant *variants, int *variant_count, int *variant_cap, int source_variant) {
+    //check if we need to reallocate the variants array    
+    if(*variant_count == *variant_cap){
+        *variant_cap *= 2;
+        //realloc not allowed, but memcpy and malloc are
+        Variant *new_variants = (Variant*)malloc(sizeof(Variant) * (*variant_cap));
+        //copy the old data over
+        memcpy(new_variants, variants, sizeof(Variant) * (*variant_cap));
+        //free the old data
+        free(variants);
+        //set the variants pointer to the new data
+        variants = new_variants;
+    }
+
+    float mutation_range = variants[source_variant].mutation_rate;
+    //create the new variant, based on the index of the source variant
+    Variant new_variant = variants[source_variant];
+    //change the parameters of the new variant by up to MUTATION_RANGE
+    new_variant.recovery_time *= (1 + randomFloat() * mutation_range * 2 - mutation_range);
+    new_variant.mortality_rate *= (1 + randomFloat() * mutation_range * 2 - mutation_range);
+    new_variant.infection_rate *= (1 + randomFloat() * mutation_range * 2 - mutation_range);
+    new_variant.mutation_rate *= (1 + randomFloat() * mutation_range * 2 - mutation_range);
+    float immunity_change = randomFloat() * mutation_range * 2 - mutation_range;
+    //ceiling it if positive, floor if negative, this way it will always change by at least 1
+    new_variant.immunity = (immunity_change > 0) ? ceil(immunity_change) : floor(immunity_change);
+    //put this variant in the variants array, increment the variant count, and return the index of the new variant
+    variants[*variant_count] = new_variant;
+    return (*variant_count)++;
 }
 
 // device function to make a random number
-__device__ int generateCuRand() {
+__device__ int randomMovement() {
     curandState_t state;
-    curand_init(RANDOM_SEED, threadIdx.x, 0, &state);
+    curand_init(RANDOM_SEED, clock(), 0, &state);
     //make it between -RANGE and RANGE
     return curand_uniform(&state) * (MOVE_RANGE * 2) - MOVE_RANGE;
+}
+
+__device__ float randomFloat() {
+    curandState_t state;
+    curand_init(RANDOM_SEED, clock(), 0, &state);
+    return curand_uniform(&state);
+}
+
+//TODO: test inline
+__host__ __device__ int coordToIndex(int x, int y) {
+    return x * GRID_SIZE + y;
 }
