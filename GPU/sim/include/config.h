@@ -15,4 +15,8 @@ const int MOVE_BLOCKS = POPULATION / MOVE_THREADS + (POPULATION % MOVE_THREADS !
 //infection parameters, infection is parallelized over each grid cell
 const int INFECTION_THREADS = 128; // number of threads per block
 const int INFECTION_BLOCKS = POPULATION / INFECTION_THREADS + (POPULATION % INFECTION_THREADS != 0); // number of blocks
+
+//mutation parameters
+//const float MUTATION_RANGE = 0.1; // how much the stats of a new agent can deviate from the parents
+
 #endif // CONFIG_H
