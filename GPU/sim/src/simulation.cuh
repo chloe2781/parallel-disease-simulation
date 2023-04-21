@@ -17,6 +17,8 @@ __global__ void movePeople(int *positions);
 __global__ void updateCellOccupancy(int *cell_grid_first, int *cell_grid_last, int *positions, int *next);
 __global__ void infectPeople(Variant* variants, int* positions, int *variant_count, int *variant_cap, int* variant, int* immunity);
 __device__ int createVariant(Variant *variants, int *variant_count, int *variant_cap, int source_variant);
+__global__ void killPeople(Variant* variants, int* variant, int* dead);
+__global__ void tick(int* immunity, int* variant, int* dead);
 __device__ int randomMovement();
 __device__ float randomFloat();
 __host__ __device__ int coordToIndex(int x, int y);

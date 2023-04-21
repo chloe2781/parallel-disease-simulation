@@ -31,9 +31,10 @@ __host__ void simulation() {
         int* positions = new int[(POPULATION)];
         //variant[value] = ID of variant, negative value if not infected
         int* variant = new int[(POPULATION)];
-        //time remaining until immunity expires, 0 or negative if immune
+        //time remaining until immunity expires, 0 or negative if no longer immune
         int* immunity = new int[(POPULATION)];
-        // whether the person is dead, 0 is alive and 1 is dead
+        // whether the person is dead, 0 or positive is alive and negative is dead
+        // also used to keep track of infection time where value of alive keeps track of infection period
         int* dead = new int[(POPULATION)]; // TODO: Try to find something smaller than int or bool to represent
 
         //initialize on host
@@ -101,10 +102,10 @@ __host__ void simulation() {
         infectPeople<<<INFECTION_THREADS, INFECTION_THREADS>>>(d_variants, d_position, d_variant_count, d_variant_cap, d_variant, d_immunity);
         cudaDeviceSynchronize();
         printf("Launching killPeople\n");
-        //killPeople<<< , >>>();
+        //killPeople<<< , >>>(d_variants, d_variant, d_dead); TODO: Add correct block sizes
         cudaDeviceSynchronize();
         printf("Launching tick\n");
-        //tick<<< , >>>();
+        //tick<<< , >>>(d_immunity, d_variant, int* dead); TODO: Add correct block sizes
         cudaDeviceSynchronize();
         if (cudaGetLastError() != cudaSuccess){
             printf("Error running kernels\n");
@@ -145,47 +146,6 @@ __host__ void simulation() {
         cudaFree(d_variant);
         cudaFree(d_immunity);
         cudaFree(d_dead);
-}
-
-// Ticks down immunity and infection times for individuals
-__global__ void tick(int* immunity, int* variant) {
-    int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    if (tid > POPULATION){
-        return;
-    }
-
-    // TODO: Check if dead ???
-
-    // Tick down immunity
-    immunity[tid] = max(immunity[tid]--, -1);
-
-    if (variant[tid] < 0){
-        // Uninfected, cannot tick down infection time
-        return;
-    }
-
-    // TODO: Tick down infection time if still alive 
-}
-
-// Kills people based on variant mortality rate
-__global__ void killPeople(Variant* variants, int* variant, int* dead) {
-    int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    if (tid > POPULATION){
-        return;
-    }
-
-    if (variant[tid] < 0){
-        // Uninfected, cannot kill
-        return;
-    }
-
-    // Get the variant of the person
-    Variant our_variant = variants[variant[tid]];
-
-    // Roll die to determine if killed off
-    if (randomFloat() < our_variant.mortality_rate) { 
-        dead[tid] = 1; // Mark as dead
-    }
 }
 
 //TODO: replace two kernel calls with one, and just barrier sync
@@ -258,6 +218,12 @@ __global__ void infectPeople(Variant* variants, int* positions, int *variant_cou
         //nothing to do
         return;
     }
+
+    if (dead[tid] < 0) {
+        // dead, cannot infect anyone
+        return;
+    }
+
     if(variant[tid] < 0){
         //uninfected, cannot infect anyone
         return;
@@ -279,9 +245,15 @@ __global__ void infectPeople(Variant* variants, int* positions, int *variant_cou
                     //mutation occurs, create a new variant
                     int new_variant = createVariant(variants, variant_count, variant_cap, variant[tid]);
                     variant[i] = new_variant;
+
+                    // Set recovery time for person
+                    dead[i] = variants[new_variant].recovery_time;
                 } else {
                     //congrats you caught the same variant
                     variant[i] = variant[tid];
+
+                    // Set recovery time for person
+                    dead[i] = variants[variant[tid]].recovery_time;
                 }
             } //lucky them
         }
@@ -325,6 +297,52 @@ __device__ int createVariant(Variant *variants, int *variant_count, int *variant
     int new_variant_index = atomicAdd(variant_count, 1);
     variants[new_variant_index] = new_variant;
     return new_variant_index;
+}
+
+// Kills people based on variant mortality rate
+__global__ void killPeople(Variant* variants, int* variant, int* dead) {
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    if (tid > POPULATION){
+        return;
+    }
+
+    if (variant[tid] < 0){
+        // Uninfected, cannot kill
+        return;
+    }
+
+    // Get the variant of the person
+    Variant our_variant = variants[variant[tid]];
+
+    // Roll die to determine if killed off
+    if (randomFloat() < our_variant.mortality_rate) { 
+        dead[tid] = -1; // Mark as dead
+    }
+}
+
+// Ticks immunity and infection times for individuals
+__global__ void tick(Variant* variants, int* immunity, int* variant, int* dead) {
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    if (tid > POPULATION){
+        return;
+    }
+
+    if (dead[tid] < 0) {
+        // dead, cannot tick
+        return;
+    }
+
+    // Tick immunity time
+    immunity[tid] = max(immunity[tid]--, -1);
+
+    // Tick infection time
+    dead[tid] = max(dead[tid]--, 0)
+    if (!dead[tid]) {
+        // Gain immunity
+        immunity[tid] = variants[variant[tid]].immunity_time;
+        // Mark as uninfected
+        variant[tid] = 0;
+    }
 }
 
 // device function to make a random number
