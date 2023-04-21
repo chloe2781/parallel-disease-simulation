@@ -100,6 +100,12 @@ __host__ void simulation() {
         printf("Launching infectPeople\n");
         infectPeople<<<INFECTION_THREADS, INFECTION_THREADS>>>(d_variants, d_position, d_variant_count, d_variant_cap, d_variant, d_immunity);
         cudaDeviceSynchronize();
+        printf("Launching killPeople\n");
+        //killPeople<<< , >>>();
+        cudaDeviceSynchronize();
+        printf("Launching tick\n");
+        //tick<<< , >>>();
+        cudaDeviceSynchronize();
         if (cudaGetLastError() != cudaSuccess){
             printf("Error running kernels\n");
             return;
@@ -141,10 +147,9 @@ __host__ void simulation() {
         cudaFree(d_dead);
 }
 
-// Ticks down immunity and infection times for individuals as well as kills people off accordingly
-__global__ void tick(int* immunity, int* variant, int* dead) {
+// Ticks down immunity and infection times for individuals
+__global__ void tick(int* immunity, int* variant) {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    int stride = blockDim.x * gridDim.x;
     if (tid > POPULATION){
         return;
     }
@@ -155,13 +160,32 @@ __global__ void tick(int* immunity, int* variant, int* dead) {
     immunity[tid] = max(immunity[tid]--, -1);
 
     if (variant[tid] < 0){
-        // Uninfected, cannot tick down infection time or kill off
+        // Uninfected, cannot tick down infection time
         return;
     }
 
-    // TODO: Roll die to determine if killed off
-
     // TODO: Tick down infection time if still alive 
+}
+
+// Kills people based on variant mortality rate
+__global__ void killPeople(Variant* variants, int* variant, int* dead) {
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    if (tid > POPULATION){
+        return;
+    }
+
+    if (variant[tid] < 0){
+        // Uninfected, cannot kill
+        return;
+    }
+
+    // Get the variant of the person
+    Variant our_variant = variants[variant[tid]];
+
+    // Roll die to determine if killed off
+    if (randomFloat() < our_variant.mortality_rate) { 
+        dead[tid] = 1; // Mark as dead
+    }
 }
 
 //TODO: replace two kernel calls with one, and just barrier sync
