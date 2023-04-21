@@ -33,6 +33,8 @@ __host__ void simulation() {
         int* variant = new int[(POPULATION)];
         //time remaining until immunity expires, 0 or negative if immune
         int* immunity = new int[(POPULATION)];
+        // whether the person is dead, 0 is alive and 1 is dead
+        int* dead = new int[(POPULATION)]; // TODO: Try to find something smaller than int or bool to represent
 
         //initialize on host
         printf("Initializing data\n");
@@ -55,6 +57,7 @@ __host__ void simulation() {
         int *d_position = NULL;
         int *d_variant = NULL;
         int *d_immunity = NULL;
+        int* d_dead = NULL;
 
         printf("Allocating GPU memory\n");
         cudaMalloc((void**)&d_cell_grid_first, sizeof(int) * GRID_SIZE * GRID_SIZE);
@@ -67,6 +70,7 @@ __host__ void simulation() {
         cudaMalloc((void**)&d_position, sizeof(int) * (POPULATION));
         cudaMalloc((void**)&d_variant, sizeof(int) * (POPULATION));
         cudaMalloc((void**)&d_immunity, sizeof(int) * (POPULATION));
+        cudaMalloc((void**)&d_dead, sizeof(int) * (POPULATION));
         if (cudaGetLastError() != cudaSuccess){
             printf("Error allocating GPU memory\n");
             return;
@@ -83,6 +87,7 @@ __host__ void simulation() {
         cudaMemcpy(d_position, positions, sizeof(int) * (POPULATION), cudaMemcpyHostToDevice);
         cudaMemcpy(d_variant, variant, sizeof(int) * (POPULATION), cudaMemcpyHostToDevice);
         cudaMemcpy(d_immunity, immunity, sizeof(int) * (POPULATION), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_dead, dead, sizeof(int) * (POPULATION), cudaMemcpyHostToDevice);
         if (cudaGetLastError() != cudaSuccess){
             printf("Error copying data to GPU\n");
             return;
@@ -110,6 +115,7 @@ __host__ void simulation() {
         cudaMemcpy(positions, d_position, sizeof(int) * (POPULATION), cudaMemcpyDeviceToHost);
         cudaMemcpy(variant, d_variant, sizeof(int) * (POPULATION), cudaMemcpyDeviceToHost);
         cudaMemcpy(immunity, d_immunity, sizeof(int) * (POPULATION), cudaMemcpyDeviceToHost);
+        cudaMemcpy(dead, d_dead, sizeof(int) * (POPULATION), cudaMemcpyDeviceToHost);
         if (cudaGetLastError() != cudaSuccess){
             printf("Error copying data back to CPU\n");
             return;
@@ -132,6 +138,30 @@ __host__ void simulation() {
         cudaFree(d_position);
         cudaFree(d_variant);
         cudaFree(d_immunity);
+        cudaFree(d_dead);
+}
+
+// Ticks down immunity and infection times for individuals as well as kills people off accordingly
+__global__ void tick(int* immunity, int* variant, int* dead) {
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    int stride = blockDim.x * gridDim.x;
+    if (tid > POPULATION){
+        return;
+    }
+
+    // TODO: Check if dead ???
+
+    // Tick down immunity
+    immunity[tid] = max(immunity[tid]--, -1);
+
+    if (variant[tid] < 0){
+        // Uninfected, cannot tick down infection time or kill off
+        return;
+    }
+
+    // TODO: Roll die to determine if killed off
+
+    // TODO: Tick down infection time if still alive 
 }
 
 //TODO: replace two kernel calls with one, and just barrier sync
