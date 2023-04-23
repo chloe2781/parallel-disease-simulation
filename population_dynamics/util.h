@@ -9,21 +9,15 @@ std::atomic<int> max_variant(1);
 //create a 2D vector to store the board and all the people in each cell
 //std::vector<std::vector<std::vector<Person>>> board(BOARD_LENGTH, std::vector<std::vector<Person>>(BOARD_WIDTH));
 
+//create a flat vector to store the board and all the people in each cell
+ std::vector<std::vector<Person>> board(BOARD_WIDTH * BOARD_LENGTH);
 
-// Mutations are kept within the *variants list
-// If a new mutation is made, it is modified from its parent variant and added into the list of mutations
-int mutate(Variant *variants, int i){
-    max_variant += 1;
-    Variant &new_variant = variants[max_variant];
-    new_variant.variant_num.store(max_variant);
-    new_variant.recovery_time = addPossibleVariationInt(variants[i].recovery_time);
-    new_variant.mortality_rate = addPossibleVariation(variants[i].mutation_rate);
-    new_variant.infection_rate = addPossibleVariation(variants[i].infection_rate);
-    new_variant.mutation_rate = addPossibleVariation(variants[i].mutation_rate);
-    new_variant.immunity = addPossibleVariationInt(variants[i].immunity);
-//    variants[max_variant] = new_variant;
-    return max_variant;
-}
+////clear before every move (won't happen do anything on first run, but that's ok)
+//void clear_board(std::vector<std::vector<std::pair<int, int>>>& board, int start, int end){
+//    for (int i = start; i < end; i++){
+//        board[i].clear();
+//    }
+//}
 
 // function to move ONE person within a fixed distance
 // randomly move on both axes
@@ -47,6 +41,11 @@ void move(Person *people, int start, int end) {
 
         if (people[i].y >= BOARD_WIDTH) people[i].x = BOARD_WIDTH -1;
         else if (people[i].y <= 0) people[i].y = 1;
+
+//         doesn't work yet
+//        add people to cell in board
+//        board[people[i].x * BOARD_WIDTH + people[i].y].push_back(&person[i]);
+
     }
 }
 
@@ -112,6 +111,21 @@ void die(Person *people, Variant *variants, int start, int end, int curr_day) {
     }
 }
 
+// Mutations are kept within the *variants list
+// If a new mutation is made, it is modified from its parent variant and added into the list of mutations
+int mutate(Variant *variants, int i){
+    max_variant += 1;
+    Variant &new_variant = variants[max_variant];
+    new_variant.variant_num.store(max_variant);
+    new_variant.recovery_time = addPossibleVariationInt(variants[i].recovery_time);
+    new_variant.mortality_rate = addPossibleVariation(variants[i].mutation_rate);
+    new_variant.infection_rate = addPossibleVariation(variants[i].infection_rate);
+    new_variant.mutation_rate = addPossibleVariation(variants[i].mutation_rate);
+    new_variant.immunity = addPossibleVariationInt(variants[i].immunity);
+//    variants[max_variant] = new_variant;
+    return max_variant;
+}
+
 //function for ONE person to infect others within infection radius
 
 //for all people, check if they are within infection radius of infected person
@@ -152,39 +166,40 @@ void infect(Person *people, Variant *variants, int start, int end, int curr_day)
 // people will move, die, and infect others if still alive
 void update_all_people(Person *people, Variant *variants, int curr_day) {
 
-  std::thread t[MAX_THREADS];
+    std::thread t[MAX_THREADS];
 
-  // update people if people died
-  for (int i = 0; i < MAX_THREADS; i++) {
-    int start = i * (MAX_STARTING_POPULATION/MAX_THREADS);
-    int end = (i+1) * (MAX_STARTING_POPULATION/MAX_THREADS);
-    t[i] = std::thread(die, people, variants, start, end, curr_day);
-  }
+    // update people if people died
+    for (int i = 0; i < MAX_THREADS; i++) {
+        int start = i * (MAX_STARTING_POPULATION/MAX_THREADS);
+        int end = (i+1) * (MAX_STARTING_POPULATION/MAX_THREADS);
+        t[i] = std::thread(die, people, variants, start, end, curr_day);
+    }
 
-  for (int i = 0; i < MAX_THREADS; i++) {
-    t[i].join();
-  }
+    for (int i = 0; i < MAX_THREADS; i++) { t[i].join(); }
 
-  // move all people
-  for (int i = 0; i < MAX_THREADS; i++) {
-    int start = i * (MAX_STARTING_POPULATION/MAX_THREADS);
-    int end = (i+1) * (MAX_STARTING_POPULATION/MAX_THREADS);
-    t[i] = std::thread(move, people, start, end);
-  }
+//    //clear board
+//    for (int i = 0; i < MAX_THREADS; i++) {
+//        int start = i * (BOARD_LENGTH * BOARD_WIDTH / MAX_THREADS);
+//        int end = (i+1) * (BOARD_LENGTH * BOARD_WIDTH / MAX_THREADS);
+//        t[i] = std::thread(clear_board, std::ref(board), start, end);
+//    }
 
-  for (int i = 0; i < MAX_THREADS; i++) {
-    t[i].join();
-  }
+    // move all people
+    for (int i = 0; i < MAX_THREADS; i++) {
+        int start = i * (MAX_STARTING_POPULATION/MAX_THREADS);
+        int end = (i+1) * (MAX_STARTING_POPULATION/MAX_THREADS);
+        t[i] = std::thread(move, people, start, end);
+    }
 
-  // infect people
-  for (int i = 0; i < MAX_THREADS; i++) {
-    int start = i * (MAX_STARTING_POPULATION/MAX_THREADS);
-    int end = (i+1) * (MAX_STARTING_POPULATION/MAX_THREADS);
-    t[i] = std::thread(infect, people, variants, start, end, curr_day);
-  }
-  for (int i = 0; i < MAX_THREADS; i++) {
-    t[i].join();
-  }
+    for (int i = 0; i < MAX_THREADS; i++) { t[i].join(); }
+
+    // infect people
+    for (int i = 0; i < MAX_THREADS; i++) {
+        int start = i * (MAX_STARTING_POPULATION/MAX_THREADS);
+        int end = (i+1) * (MAX_STARTING_POPULATION/MAX_THREADS);
+        t[i] = std::thread(infect, people, variants, start, end, curr_day);
+    }
+    for (int i = 0; i < MAX_THREADS; i++) { t[i].join(); }
 }
 
 
