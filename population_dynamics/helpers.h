@@ -12,7 +12,7 @@
 #define MAX_STARTING_POPULATION 128
 #define NUM_TIME_PERIODS 128
 #define MAX_MOVEMENT 8
-#define MAX_STARTING_INFECTED 1
+#define MAX_STARTING_INFECTED 5
 
 // data structure to store configuration about the game
 // can be altered to test different factors

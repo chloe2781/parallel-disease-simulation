@@ -81,15 +81,20 @@ int main() {
     variants[0].immunity = 90;
 
     // Generate random indexes for people to be infected
-    // moved from util.h because we only run this once
+    //BUG: before this was calling randRangePos(config.starting_infected)
+    //so we were never getting a random number based on the entire pop
+    //but only on starting_infected. now calling on entire pop
     for (int i = 0; i < config.starting_infected; i++) {
-        int id = randRangePos(config.starting_infected);
+        int id = randRangePos(config.start_population);
         people[id].infected = true;
         people[id].day_infected = 0;
         people[id].variant = 0;
     }
 
-    std::cout << " Checkpoint 3 " << std::endl;
+    std::cout << " Checkpoint 3" << std::endl;
+
+    std::cout << " ----------------------------------------- " << std::endl;
+    std::cout << " Starting Population" << std::endl;
 
     for (int i = 0; i < config.start_population; i++) {
         std::cout << "Person " << i << " - ID: " << people[i].id << ", X: " << people[i].x
@@ -107,6 +112,8 @@ int main() {
 
     // ... code to do something with the updated people ...
     std::cout << " ----------------------------------------- " << std::endl;
+
+    std::cout << " Ending Population" << std::endl;
 
     for (int i = 0; i < config.start_population; i++) {
         std::cout << "Person " << i << " - ID: " << people[i].id << ", X: " << people[i].x

@@ -7,7 +7,7 @@
 std::atomic<int> max_variant(1);
 
 //create a 2D vector to store the board and all the people in each cell
-std::vector<std::vector<std::vector<Person>>> board(BOARD_LENGTH, std::vector<std::vector<Person>>(BOARD_WIDTH));
+//std::vector<std::vector<std::vector<Person>>> board(BOARD_LENGTH, std::vector<std::vector<Person>>(BOARD_WIDTH));
 
 
 // Mutations are kept within the *variants list
