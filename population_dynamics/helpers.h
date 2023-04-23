@@ -7,12 +7,12 @@
 #include <cmath>
 
 // Some helpful constants
-#define BOARD_LENGTH 60
-#define BOARD_WIDTH 60
-#define MAX_STARTING_POPULATION 80
-#define NUM_TIME_PERIODS 80
+#define BOARD_LENGTH 50
+#define BOARD_WIDTH 50
+#define MAX_STARTING_POPULATION 128
+#define NUM_TIME_PERIODS 128
 #define MAX_MOVEMENT 8
-#define MAX_STARTING_INFECTED 10
+#define MAX_STARTING_INFECTED 1
 
 // data structure to store configuration about the game
 // can be altered to test different factors

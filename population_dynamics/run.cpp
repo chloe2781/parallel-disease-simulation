@@ -74,8 +74,8 @@ int main() {
     Variant variants[1];
     variants[0].variant_num = 0;
     variants[0].recovery_time = 14;
-    variants[0].mortality_rate = 0.01;
-    variants[0].infection_rate = 0.3;
+    variants[0].mortality_rate = 0.015;
+    variants[0].infection_rate = 0.5;
     variants[0].infection_range = 3;
     variants[0].mutation_rate = 0.01;
     variants[0].immunity = 90;

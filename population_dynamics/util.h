@@ -92,10 +92,10 @@ void die(Person *people, Variant *variants, int start, int end, int curr_day) {
       if (people[i].diseased && people[i].dead == false) {
         people[i].day_infected++; // increment time to account for current day we're on
         float prob = rand01();
-          if (prob < variants[people[i].variant].mortality_rate) {
-            people[i].dead = true;
-            continue;
-          }
+        if (prob < variants[people[i].variant].mortality_rate) {
+          people[i].dead = true;
+          continue;
+        }
 //        int days_sick = curr_day - people[i].day_infected;
         if (people[i].day_infected >= variants[people[i].variant].recovery_time) {
           people[i].diseased = false;
@@ -120,7 +120,7 @@ void infect(Person *people, Variant *variants, int start, int end, int curr_day)
     for (int i = start; i < end; i++) {
         if (people[i].diseased) {
             for (int j = 0; j < MAX_STARTING_POPULATION; j++) {
-                if (i != j) {
+                if (i != j && !people[j].diseased && !people[j].dead && people[j].immunity == 0) {
 
                     Variant& v = variants[people[i].variant];
 
@@ -129,12 +129,12 @@ void infect(Person *people, Variant *variants, int start, int end, int curr_day)
                         float infectionProb = rand01();
                         if (infectionProb < v.infection_rate) {
                             people[j].diseased = true;
-                            people[j].day_infected = curr_day;
+//                            people[j].day_infected = curr_day;
                             people[j].variant = v.variant_num; //either variant from person infected, or small variation
                             float mutationProb = rand01();
-                            if (mutationProb < v.mutation_rate) { //small chance of variation
-                                people[j].variant = mutate(variants, v.variant_num);
-                            }
+//                            if (mutationProb < v.mutation_rate) { //small chance of variation
+//                                people[j].variant = mutate(variants, v.variant_num);
+//                            }
                         }
                     }
                 }
