@@ -35,7 +35,7 @@ __host__ void simulation() {
         int* immunity = new int[(POPULATION)];
         // whether the person is dead, 0 or positive is alive and negative is dead
         // also used to keep track of infection time where value of alive keeps track of infection period
-        int* dead = new int[(POPULATION)]; // TODO: Try to find something smaller than int or bool to represent
+        int* dead = new int[(POPULATION)]; 
 
         //initialize on host
         printf("Initializing data\n");
@@ -105,7 +105,7 @@ __host__ void simulation() {
         //killPeople<<< , >>>(d_variants, d_variant, d_dead); TODO: Add correct block sizes
         cudaDeviceSynchronize();
         printf("Launching tick\n");
-        //tick<<< , >>>(d_immunity, d_variant, int* dead); TODO: Add correct block sizes
+        //tick<<< , >>>(d_variants, d_immunity, d_variant, d_dead); TODO: Add correct block sizes
         cudaDeviceSynchronize();
         if (cudaGetLastError() != cudaSuccess){
             printf("Error running kernels\n");
