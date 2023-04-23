@@ -32,7 +32,7 @@ typedef struct {
     std::atomic<int> x;    // x location in grid
     std::atomic<int> y;    // y location in grid
     int id;                // identifier for the person
-    bool diseased;         // whether the person currently is infected (<14 days since day_infected)
+    bool infected;         // whether the person currently is infected (<14 days since day_infected)
     int day_infected;      // latest timestep at which individual was infected
     bool dead;             // whether the person is dead
     int variant;           // variant of the disease the person is infected with

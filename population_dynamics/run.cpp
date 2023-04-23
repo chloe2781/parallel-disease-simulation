@@ -61,7 +61,7 @@ int main() {
         people[i].x = randRangePos(config.length); // assuming BOARD_LENGTH is defined in helper.h
         people[i].y = randRangePos(config.width);  // assuming BOARD_WIDTH is defined in helper.h
         people[i].id = i;                      // set identifier for the person as the index
-        people[i].diseased = false;            // set initial disease status as not diseased
+        people[i].infected = false;            // set initial disease status as not infected
         people[i].day_infected = -1;           // set initial day infected as -1 (not infected)
         people[i].dead = false;                // set initial dead status as not dead
         people[i].variant = -1;                 // set initial variant as -1 (not infected)
@@ -84,7 +84,7 @@ int main() {
     // moved from util.h because we only run this once
     for (int i = 0; i < config.starting_infected; i++) {
         int id = randRangePos(config.starting_infected);
-        people[id].diseased = true;
+        people[id].infected = true;
         people[id].day_infected = 0;
         people[id].variant = 0;
     }
@@ -94,7 +94,7 @@ int main() {
     for (int i = 0; i < config.start_population; i++) {
         std::cout << "Person " << i << " - ID: " << people[i].id << ", X: " << people[i].x
                 << ", Y: " << people[i].y << ", Dead: " << (people[i].dead ? "Yes" : "No")
-                << ", Immunity: " << people[i].immunity << ", Diseased: " << (people[i].diseased ? "Yes" : "No")
+                << ", Immunity: " << people[i].immunity << ", infected: " << (people[i].infected ? "Yes" : "No")
                 << ", Day Infected: " << people[i].day_infected << std::endl;
     }
 
@@ -111,7 +111,7 @@ int main() {
     for (int i = 0; i < config.start_population; i++) {
         std::cout << "Person " << i << " - ID: " << people[i].id << ", X: " << people[i].x
                         << ", Y: " << people[i].y << ", Dead: " << (people[i].dead ? "Yes" : "No")
-                        << ", Immunity: " << people[i].immunity << ", Diseased: " << (people[i].diseased ? "Yes" : "No")
+                        << ", Immunity: " << people[i].immunity << ", infected: " << (people[i].infected ? "Yes" : "No")
                         << ", Day Infected: " << people[i].day_infected << std::endl;
     }
 
