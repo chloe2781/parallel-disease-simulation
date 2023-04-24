@@ -309,17 +309,20 @@ __global__ void killPeople(Variant* variants, int* variant, int* dead) {
         return;
     }
 
-    if (variant[tid] < 0){
-        // Uninfected, cannot kill
-        return;
-    }
+    int stride = blockDim.x * gridDim.x;
+    for (int i = tid; i < POPULATION; i += stride) {
+        if (variant[i] < 0){
+            // Uninfected, cannot kill
+            return;
+        }
 
-    // Get the variant of the person
-    Variant our_variant = variants[variant[tid]];
+        // Get the variant of the person
+        Variant our_variant = variants[variant[i]];
 
-    // Roll die to determine if killed off
-    if (randomFloat() < our_variant.mortality_rate) { 
-        dead[tid] = -1; // Mark as dead
+        // Roll die to determine if killed off
+        if (randomFloat() < our_variant.mortality_rate) { 
+            dead[i] = -1; // Mark as dead
+        }
     }
 }
 
@@ -330,21 +333,24 @@ __global__ void tick(Variant* variants, int* immunity, int* variant, int* dead) 
         return;
     }
 
-    if (dead[tid] < 0) {
-        // dead, cannot tick
-        return;
-    }
+    int stride = blockDim.x * gridDim.x;
+    for (int i = tid; i < POPULATION; i += stride) {
+        if (dead[i] < 0) {
+            // dead, cannot tick
+            return;
+        }
 
-    // Tick immunity time
-    immunity[tid] = max(immunity[tid]--, -1);
+        // Tick immunity time
+        immunity[i] = max(immunity[i]--, -1);
 
-    // Tick infection time
-    dead[tid] = max(dead[tid]--, 0);
-    if (!dead[tid]) {
-        // Gain immunity
-        immunity[tid] = variants[variant[tid]].immunity_time;
-        // Mark as uninfected
-        variant[tid] = 0;
+        // Tick infection time
+        dead[i] = max(dead[i]--, 0);
+        if (!dead[i]) {
+            // Gain immunity
+            immunity[i] = variants[variant[i]].immunity_time;
+            // Mark as uninfected
+            variant[i] = 0;
+        }
     }
 }
 
