@@ -343,9 +343,16 @@ __global__ void tick(Variant* variants, int* immunity, int* variant, int* dead) 
         // Tick immunity time
         immunity[i] = max(immunity[i]--, -1);
 
-        // Tick infection time
-        dead[i] = max(dead[i]--, 0);
-        if (!dead[i]) {
+        //currently infected but survived
+        if (dead[i] > 0) {
+            // Tick infection time
+            dead[i] = max(dead[i]--, 0);
+            return;
+        }
+
+        //either recovering, or were never infected
+        //check if variant is > 0 to see if infected
+        if (variant[i] > 0) {
             // Gain immunity
             immunity[i] = variants[variant[i]].immunity_time;
             // Mark as uninfected
