@@ -29,10 +29,16 @@ void move(Person *people, int start, int end) {
         people[i].y = (people[i].y + offsetY);
 
         // Wrap around the world size
-        if (people[i].x >= BOARD_LENGTH) people[i].x = BOARD_LENGTH -1;
+        if (people[i].x >= BOARD_LENGTH) {
+          people[i].x = BOARD_LENGTH -1;
+          std::cout << "x: " << people[i].x << std::endl;
+        }
         else if (people[i].x <= 0) people[i].x = 1;
 
-        if (people[i].y >= BOARD_WIDTH) people[i].x = BOARD_WIDTH -1;
+        if (people[i].y >= BOARD_WIDTH) {
+          people[i].y = BOARD_WIDTH -1;
+          std::cout << "x: " << people[i].x << std::endl;
+        }
         else if (people[i].y <= 0) people[i].y = 1;
 
 //         doesn't work yet
@@ -62,7 +68,7 @@ void die(Person *people, Variant *variants, int start, int end, int curr_day) {
 //        int days_sick = curr_day - people[i].day_infected;
         if (people[i].day_infected >= variants[people[i].variant].recovery_time) {
           people[i].infected = false;
-          people[i].immunity = variants[people[i].variant].immunity;
+          people[i].immunity = variants[people[i].variant].recovery_time;
           people[i].day_infected = 0;
         }
       }else if (people[i].immunity > 0){
