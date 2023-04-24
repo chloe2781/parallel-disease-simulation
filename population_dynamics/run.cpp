@@ -1,4 +1,15 @@
 #include "util.h"
+#include <SDL2/SDL.h>
+
+void drawPerson(SDL_Renderer* renderer, const Person& person) {
+    // Set color to red
+    std::cout << person.dead << std::endl;
+    person.dead ? SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255) : SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+
+    // Draw a rectangle at the person's coordinates
+    SDL_Rect rect = { person.x*10, person.y*10, 10, 10 };
+    SDL_RenderFillRect(renderer, &rect);
+}
 
 int main() {
 
@@ -87,8 +98,12 @@ int main() {
 
     std::cout << " Ending Population" << std::endl;
 
+    int end_population_size = 0;
+    int end_immune_size = 0;
     // print the people after the simulation
     for (int i = 0; i < config.start_population; i++) {
+        end_population_size += people[i].dead ? 0 : 1;
+        end_immune_size += people[i].immunity ? 1 : 0;
         std::cout << "Person " << i
                   << " - ID: " << people[i].id
                   << ", X: " << people[i].x
@@ -113,6 +128,42 @@ int main() {
                   << std::endl;
     }
 
-    return 0;
+    std::cout << " ----------------------------------------- " << std::endl;
+    std::cout << "Statistics" << std::endl;
+    std::cout << "Start population size: " << config.start_population << std::endl;
+    std::cout << "Ending population size: " << end_population_size << std::endl;
+    std::printf("%s %.2f", "Mortality Rate:", float(100) * (1 - float(end_population_size)/float(config.start_population)));
 
+    //std::printf("%s %.2f", "Percent Immune:", float(100) * (1 - float(end_immune_size)/float(config.start_population)));
+
+    SDL_Init(SDL_INIT_VIDEO);
+
+    // Create a window and renderer
+    SDL_Window* window = SDL_CreateWindow("Map", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 500, 500, SDL_WINDOW_SHOWN);
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+
+    for (int i = 0; i < config.start_population; i++) {
+        drawPerson(renderer, people[i]);
+    }
+
+    // Update the screen
+    SDL_RenderPresent(renderer);
+
+    // Wait for a key press before exiting
+    bool quit = false;
+    while (!quit) {
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_QUIT) {
+                quit = true;
+            }
+        }
+    }
+
+    // Clean up SDL
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+
+    return 0;
 }
