@@ -7,7 +7,7 @@
 const int GRID_SIZE = 256; // size of the grid, if you turn this up past 256, you will need to use bigger data types for the grid coordinates
 const int POPULATION = 2; // population of the simulation, 2^20, targeting up to 300 million atm
 const int RANDOM_SEED = 1337; // seed for the random number generator
-const int EPOCHS = 100; // number of epochs to run the simulation for
+const int EPOCHS = 3; // number of epochs to run the simulation for
 
 //movement parameters, 
 const int MOVE_RANGE = 5; // range of movement of the agents

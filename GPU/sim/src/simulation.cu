@@ -118,23 +118,27 @@ __host__ void simulation() {
 
         // run the gpu code once
         for(int i = 0; i < EPOCHS; i++){
-            printf("Epoch %d =====================================================================\n", i);
-            printf("Launching movePeople\n");
+            printf("Epoch %d =====================================================================\n", i + 1);
+            printf("movePeople - ");
             movePeople<<<MOVE_BLOCKS, MOVE_THREADS>>>(d_position);
             cudaDeviceSynchronize();
-            printf("Launching infectPeople\n");
+            cudaCheck("movePeople error");
+            printf("infectPeople - ");
             infectPeople<<<INFECTION_THREADS, INFECTION_THREADS>>>(d_variants, d_position, d_variant_count, d_variant_cap, d_variant, d_immunity, d_dead);
             cudaDeviceSynchronize();
-            printf("Launching killPeople\n");
+            cudaCheck("infectPeople error");
+            printf("killPeople - ");
             killPeople<<<KILL_BLOCKS,KILL_THREADS>>>(d_variants, d_variant, d_dead);
             cudaDeviceSynchronize();
-            printf("Launching tick\n");
+            cudaCheck("killPeople error");
+            printf("tick\n");
             tick<<<TICK_BLOCKS,TICK_THREADS>>>(d_variants, d_immunity, d_variant, d_dead);
             cudaDeviceSynchronize();
-            cudaCheck("Error running kernels");
-            for (int i = 0; i < POPULATION; i++) {
-            printf("Person %d is at position (%d, %d). Infected: %d, Immunity: %d, Dead: %d\n", i, positions[i] % GRID_SIZE, positions[i] / GRID_SIZE, variant[i], immunity[i], dead[i]);
-            }
+            cudaCheck("tick error");
+            gpuPeek<<<1, 1>>>(d_position, d_variant, d_immunity, d_dead);
+            cudaDeviceSynchronize();
+            cudaCheck("gpuPeek error");
+
         }
         printf("Epochs complete\n");
 
@@ -173,6 +177,13 @@ __host__ void simulation() {
         cudaCheck("Error freeing GPU memory");
 }
 
+__global__ void gpuPeek(int* positions, int* variant, int* immunity, int* dead){
+    //expected to be 1 thread, 1 block
+    for (int i = 0; i < POPULATION; i++) {
+        printf("Person %d is at position (%d, %d). Infected: %d, Immunity: %d, Dead: %d\n", i, positions[i] % GRID_SIZE, positions[i] / GRID_SIZE, variant[i], immunity[i], dead[i]);
+    }
+}
+
 //shortens the cuda error checking code to one line whereever it is called
 void cudaCheck(const std::string &message){
     if (cudaGetLastError() != cudaSuccess){
@@ -195,8 +206,9 @@ __global__ void movePeople(int *positions) {
         int position = positions[i];
 
         //get movements
-        int rand_x = randomMovement();
-        int rand_y = randomMovement();
+        int rand_x = randomMovement(tid);
+        //offset the input to randomMovement to get a different number
+        int rand_y = randomMovement(tid + 1);
 
         //add the movements back into position
         int x = position % GRID_SIZE;
@@ -273,9 +285,9 @@ __global__ void infectPeople(Variant* variants, int* positions, int *variant_cou
         //check if the person is in the same cell as us
         if(positions[i] == our_position){
             //check if infection occurs
-            if(immunity[i] < 1 && randomFloat() < our_variant.infection_rate){
+            if(immunity[i] < 1 && randomFloat(tid) < our_variant.infection_rate){
                 //infection occurs, check for mutation
-                if(randomFloat() < our_variant.mutation_rate){
+                if(randomFloat(tid) < our_variant.mutation_rate){
                     //mutation occurs, create a new variant
                     int new_variant = createVariant(variants, variant_count, variant_cap, variant[tid]);
                     variant[i] = new_variant;
@@ -296,6 +308,7 @@ __global__ void infectPeople(Variant* variants, int* positions, int *variant_cou
 
 //device function to create a variant
 __device__ int createVariant(Variant *variants, int *variant_count, int *variant_cap, int source_variant) {
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
     //check if we need to reallocate the variants array    
     if(*variant_count == *variant_cap){
         *variant_cap *= 2;
@@ -313,12 +326,12 @@ __device__ int createVariant(Variant *variants, int *variant_count, int *variant
     //create the new variant, based on the index of the source variant
     Variant new_variant = variants[source_variant];
     //change the parameters of the new variant by up to MUTATION_RANGE
-    new_variant.mortality_rate *= (1 + randomFloat() * mutation_range * 2 - mutation_range);
-    new_variant.infection_rate *= (1 + randomFloat() * mutation_range * 2 - mutation_range);
-    new_variant.mutation_rate *= (1 + randomFloat() * mutation_range * 2 - mutation_range);
+    new_variant.mortality_rate *= (1 + randomFloat(tid) * mutation_range * 2 - mutation_range);
+    new_variant.infection_rate *= (1 + randomFloat(tid) * mutation_range * 2 - mutation_range);
+    new_variant.mutation_rate *= (1 + randomFloat(tid) * mutation_range * 2 - mutation_range);
 
-    float recovery_change = randomFloat() * mutation_range * 2 - mutation_range;
-    float immunity_change = randomFloat() * mutation_range * 2 - mutation_range;
+    float recovery_change = randomFloat(tid) * mutation_range * 2 - mutation_range;
+    float immunity_change = randomFloat(tid) * mutation_range * 2 - mutation_range;
     //floor a negative recovery change, ceil a positive recovery change
     new_variant.recovery_time += (recovery_change < 0 ? floor(recovery_change) : ceil(recovery_change));
     new_variant.immunity_time += (immunity_change < 0 ? floor(immunity_change) : ceil(immunity_change));
@@ -350,7 +363,7 @@ __global__ void killPeople(Variant* variants, int* variant, int* dead) {
         Variant our_variant = variants[variant[i]];
 
         // Roll die to determine if killed off
-        if (randomFloat() < our_variant.mortality_rate) { 
+        if (randomFloat(tid) < our_variant.mortality_rate) { 
             dead[i] = -1; // Mark as dead
         }
     }
@@ -394,16 +407,16 @@ __global__ void tick(Variant* variants, int* immunity, int* variant, int* dead) 
 
 
 // device function to make a random number
-__device__ int randomMovement() {
+__device__ int randomMovement(int thread_id) {
     curandState_t state;
-    curand_init(RANDOM_SEED, clock(), 0, &state);
+    curand_init(RANDOM_SEED, thread_id, 0, &state);
     //make it between -RANGE and RANGE
     return curand_uniform(&state) * (MOVE_RANGE * 2) - MOVE_RANGE;
 }
 
-__device__ float randomFloat() {
+__device__ float randomFloat(int thread_id) {
     curandState_t state;
-    curand_init(RANDOM_SEED, clock(), 0, &state);
+    curand_init(RANDOM_SEED, thread_id, 0, &state);
     return curand_uniform(&state);
 }
 
