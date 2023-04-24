@@ -19,4 +19,13 @@ const int INFECTION_BLOCKS = POPULATION / INFECTION_THREADS + (POPULATION % INFE
 //mutation parameters
 //const float MUTATION_RANGE = 0.1; // how much the stats of a new agent can deviate from the parents
 
+//kill parameters
+const int KILL_THREADS = 128; // number of threads per block
+const int KILL_BLOCKS = POPULATION / KILL_THREADS + (POPULATION % KILL_THREADS != 0); // number of blocks
+
+//tick parameters
+const int TICK_THREADS = 128; // number of threads per block
+const int TICK_BLOCKS = POPULATION / TICK_THREADS + (POPULATION % TICK_THREADS != 0); // number of blocks
+
+
 #endif // CONFIG_H

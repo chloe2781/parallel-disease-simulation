@@ -8,10 +8,6 @@
 #include <string>
 #include <atomic>
 
-//allow use of uint8_t
-
-
-
 __host__ void simulation() {
 
         //Sim Variables
@@ -36,6 +32,10 @@ __host__ void simulation() {
         // whether the person is dead, 0 or positive is alive and negative is dead
         // also used to keep track of infection time where value of alive keeps track of infection period
         int* dead = new int[(POPULATION)]; 
+
+        //current memory footprint
+        //per person: 
+        //overall sim:
 
         //initialize on host
         printf("Initializing data\n");
@@ -78,17 +78,17 @@ __host__ void simulation() {
         }
 
         printf("Copying data to GPU\n");
-        cudaMemcpy(d_cell_grid_first, cell_grid_first, sizeof(int) * GRID_SIZE * GRID_SIZE, cudaMemcpyHostToDevice);
-        cudaMemcpy(d_cell_grid_last, cell_grid_last, sizeof(int) * GRID_SIZE * GRID_SIZE, cudaMemcpyHostToDevice);
-        cudaMemcpy(d_next, next, sizeof(int) * GRID_SIZE * GRID_SIZE, cudaMemcpyHostToDevice);
-        cudaMemcpy(d_variant_count, &variant_count, sizeof(int), cudaMemcpyHostToDevice);
-        cudaMemcpy(d_variant_cap, &variant_cap, sizeof(int), cudaMemcpyHostToDevice);
-        cudaMemcpy(d_variants, variants, sizeof(Variant) * variant_cap, cudaMemcpyHostToDevice);
+        cudaMemcpy(d_cell_grid_first,   cell_grid_first, sizeof(int) * GRID_SIZE * GRID_SIZE,   cudaMemcpyHostToDevice);
+        cudaMemcpy(d_cell_grid_last,    cell_grid_last, sizeof(int) * GRID_SIZE * GRID_SIZE,    cudaMemcpyHostToDevice);
+        cudaMemcpy(d_next, next,        sizeof(int) * GRID_SIZE * GRID_SIZE,                    cudaMemcpyHostToDevice);
+        cudaMemcpy(d_variant_count,     &variant_count, sizeof(int),                            cudaMemcpyHostToDevice);
+        cudaMemcpy(d_variant_cap,       &variant_cap, sizeof(int),                              cudaMemcpyHostToDevice);
+        cudaMemcpy(d_variants,          variants, sizeof(Variant) * variant_cap,                cudaMemcpyHostToDevice);
 
-        cudaMemcpy(d_position, positions, sizeof(int) * (POPULATION), cudaMemcpyHostToDevice);
-        cudaMemcpy(d_variant, variant, sizeof(int) * (POPULATION), cudaMemcpyHostToDevice);
-        cudaMemcpy(d_immunity, immunity, sizeof(int) * (POPULATION), cudaMemcpyHostToDevice);
-        cudaMemcpy(d_dead, dead, sizeof(int) * (POPULATION), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_position,          positions, sizeof(int) * (POPULATION),                  cudaMemcpyHostToDevice);
+        cudaMemcpy(d_variant,           variant, sizeof(int) * (POPULATION),                    cudaMemcpyHostToDevice);
+        cudaMemcpy(d_immunity,          immunity, sizeof(int) * (POPULATION),                   cudaMemcpyHostToDevice);
+        cudaMemcpy(d_dead, dead,        sizeof(int) * (POPULATION),                             cudaMemcpyHostToDevice);
         if (cudaGetLastError() != cudaSuccess){
             printf("Error copying data to GPU\n");
             return;
@@ -99,13 +99,13 @@ __host__ void simulation() {
         movePeople<<<MOVE_BLOCKS, MOVE_THREADS>>>(d_position);
         cudaDeviceSynchronize();
         printf("Launching infectPeople\n");
-        infectPeople<<<INFECTION_THREADS, INFECTION_THREADS>>>(d_variants, d_position, d_variant_count, d_variant_cap, d_variant, d_immunity);
+        infectPeople<<<INFECTION_THREADS, INFECTION_THREADS>>>(d_variants, d_position, d_variant_count, d_variant_cap, d_variant, d_immunity, d_dead);
         cudaDeviceSynchronize();
         printf("Launching killPeople\n");
-        //killPeople<<< , >>>(d_variants, d_variant, d_dead); TODO: Add correct block sizes
+        killPeople<<<KILL_BLOCKS,KILL_THREADS>>>(d_variants, d_variant, d_dead);
         cudaDeviceSynchronize();
         printf("Launching tick\n");
-        //tick<<< , >>>(d_variants, d_immunity, d_variant, d_dead); TODO: Add correct block sizes
+        tick<<<TICK_BLOCKS,TICK_THREADS>>>(d_variants, d_immunity, d_variant, d_dead);
         cudaDeviceSynchronize();
         if (cudaGetLastError() != cudaSuccess){
             printf("Error running kernels\n");
@@ -114,15 +114,16 @@ __host__ void simulation() {
         printf("Kernels Complete\n");
 
         printf("Copying data back to CPU\n");
-        cudaMemcpy(cell_grid_first, d_cell_grid_first, sizeof(int) * GRID_SIZE * GRID_SIZE, cudaMemcpyDeviceToHost);
-        cudaMemcpy(cell_grid_last, d_cell_grid_last, sizeof(int) * GRID_SIZE * GRID_SIZE, cudaMemcpyDeviceToHost);
-        cudaMemcpy(next, d_next, sizeof(int) * GRID_SIZE * GRID_SIZE, cudaMemcpyDeviceToHost); 
-        cudaMemcpy(&variant_cap, d_variant_cap, sizeof(int), cudaMemcpyDeviceToHost);
-        cudaMemcpy(variants, d_variants, sizeof(Variant) * variant_cap, cudaMemcpyDeviceToHost);
-        cudaMemcpy(positions, d_position, sizeof(int) * (POPULATION), cudaMemcpyDeviceToHost);
-        cudaMemcpy(variant, d_variant, sizeof(int) * (POPULATION), cudaMemcpyDeviceToHost);
-        cudaMemcpy(immunity, d_immunity, sizeof(int) * (POPULATION), cudaMemcpyDeviceToHost);
-        cudaMemcpy(dead, d_dead, sizeof(int) * (POPULATION), cudaMemcpyDeviceToHost);
+        cudaMemcpy(cell_grid_first,     d_cell_grid_first, sizeof(int) * GRID_SIZE * GRID_SIZE, cudaMemcpyDeviceToHost);
+        cudaMemcpy(cell_grid_last,      d_cell_grid_last, sizeof(int) * GRID_SIZE * GRID_SIZE,  cudaMemcpyDeviceToHost);
+        cudaMemcpy(next, d_next,        sizeof(int) * GRID_SIZE * GRID_SIZE,                    cudaMemcpyDeviceToHost); 
+        cudaMemcpy(&variant_cap,        d_variant_cap, sizeof(int),                             cudaMemcpyDeviceToHost);
+        cudaMemcpy(variants,            d_variants, sizeof(Variant) * variant_cap,              cudaMemcpyDeviceToHost);
+
+        cudaMemcpy(positions,           d_position, sizeof(int) * (POPULATION),                 cudaMemcpyDeviceToHost);
+        cudaMemcpy(variant,             d_variant, sizeof(int) * (POPULATION),                  cudaMemcpyDeviceToHost);
+        cudaMemcpy(immunity,            d_immunity, sizeof(int) * (POPULATION),                 cudaMemcpyDeviceToHost);
+        cudaMemcpy(dead,                d_dead, sizeof(int) * (POPULATION),                     cudaMemcpyDeviceToHost);
         if (cudaGetLastError() != cudaSuccess){
             printf("Error copying data back to CPU\n");
             return;
@@ -142,6 +143,7 @@ __host__ void simulation() {
         cudaFree(d_variant_count);
         cudaFree(d_variant_cap);
         cudaFree(d_variants);
+
         cudaFree(d_position);
         cudaFree(d_variant);
         cudaFree(d_immunity);
@@ -154,6 +156,7 @@ __global__ void movePeople(int *positions) {
     //move every person in the grid a random amount in each direction
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
     int stride = blockDim.x * gridDim.x;
+
     if(tid > POPULATION){
         return;
     }
@@ -212,7 +215,7 @@ __global__ void updateCellOccupancy(int *cell_grid_first, int *cell_grid_last, i
 }
 
 //this function will update the infection status based on people sharing cells
-__global__ void infectPeople(Variant* variants, int* positions, int *variant_count, int *variant_cap, int* variant, int* immunity) {
+__global__ void infectPeople(Variant* variants, int* positions, int *variant_count, int *variant_cap, int* variant, int* immunity, int* dead) {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
     if (tid > POPULATION){
         //nothing to do
@@ -336,7 +339,7 @@ __global__ void tick(Variant* variants, int* immunity, int* variant, int* dead) 
     immunity[tid] = max(immunity[tid]--, -1);
 
     // Tick infection time
-    dead[tid] = max(dead[tid]--, 0)
+    dead[tid] = max(dead[tid]--, 0);
     if (!dead[tid]) {
         // Gain immunity
         immunity[tid] = variants[variant[tid]].immunity_time;
