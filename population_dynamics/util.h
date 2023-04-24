@@ -20,6 +20,7 @@ void move(Person *people, int start, int end) {
 
     for (int i = start; i < end; i++) {
         // Generate random offsets for x and y coordinates within the movement range
+
         int offsetX = randRange(MAX_MOVEMENT);
         int offsetY = randRange(MAX_MOVEMENT);
 
@@ -48,6 +49,7 @@ void move(Person *people, int start, int end) {
 */
 void die(Person *people, Variant *variants, int start, int end, int curr_day) {
     //for (int i = 0; i < MAX_STARTING_POPULATION; i++) { //removed to thread
+
     for (int i = start; i < end; i++) {
 
       if (people[i].infected && people[i].dead == false) {
@@ -129,40 +131,48 @@ void infect(Person *people, Variant *variants, int start, int end, int curr_day)
 */
 void update_all_people(Person *people, Variant *variants, int curr_day) {
 
+    int num_threads = MAX_THREADS;
     std::thread t[MAX_THREADS];
 
+    if (MAX_THREADS > MAX_STARTING_POPULATION){
+        std::thread t[MAX_STARTING_POPULATION];
+        num_threads = MAX_STARTING_POPULATION;
+    }
+
     // update people if people died
-    for (int i = 0; i < MAX_THREADS; i++) {
-        int start = i * (MAX_STARTING_POPULATION/MAX_THREADS);
-        int end = (i+1) * (MAX_STARTING_POPULATION/MAX_THREADS);
+    for (int i = 0; i < num_threads; i++) {
+        int start = i * (MAX_STARTING_POPULATION/num_threads);
+        int end = (i+1) * (MAX_STARTING_POPULATION/num_threads);
         t[i] = std::thread(die, people, variants, start, end, curr_day);
     }
 
-    for (int i = 0; i < MAX_THREADS; i++) { t[i].join(); }
+    for (int i = 0; i < num_threads; i++) { t[i].join(); }
 
 //    //clear board
-//    for (int i = 0; i < MAX_THREADS; i++) {
-//        int start = i * (BOARD_LENGTH * BOARD_WIDTH / MAX_THREADS);
-//        int end = (i+1) * (BOARD_LENGTH * BOARD_WIDTH / MAX_THREADS);
+//    for (int i = 0; i < num_threads; i++) {
+//        int start = i * (BOARD_LENGTH * BOARD_WIDTH / num_threads);
+//        int end = (i+1) * (BOARD_LENGTH * BOARD_WIDTH / num_threads);
+//        if (i > MAX_STARTING_POPULATION){ break; }
 //        t[i] = std::thread(clear_board, std::ref(board), start, end);
 //    }
 
     // move all people
-    for (int i = 0; i < MAX_THREADS; i++) {
-        int start = i * (MAX_STARTING_POPULATION/MAX_THREADS);
-        int end = (i+1) * (MAX_STARTING_POPULATION/MAX_THREADS);
+    for (int i = 0; i < num_threads; i++) {
+        int start = i * (MAX_STARTING_POPULATION/num_threads);
+        int end = (i+1) * (MAX_STARTING_POPULATION/num_threads);
         t[i] = std::thread(move, people, start, end);
     }
 
-    for (int i = 0; i < MAX_THREADS; i++) { t[i].join(); }
+    for (int i = 0; i < num_threads; i++) { t[i].join(); }
 
     // infect people
-    for (int i = 0; i < MAX_THREADS; i++) {
-        int start = i * (MAX_STARTING_POPULATION/MAX_THREADS);
-        int end = (i+1) * (MAX_STARTING_POPULATION/MAX_THREADS);
+    for (int i = 0; i < num_threads; i++) {
+        int start = i * (MAX_STARTING_POPULATION/num_threads);
+        int end = (i+1) * (MAX_STARTING_POPULATION/num_threads);
         t[i] = std::thread(infect, people, variants, start, end, curr_day);
     }
-    for (int i = 0; i < MAX_THREADS; i++) { t[i].join(); }
+    for (int i = 0; i < num_threads; i++) { t[i].join(); }
+
 }
 
 
