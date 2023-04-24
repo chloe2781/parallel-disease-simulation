@@ -71,7 +71,8 @@ int main() {
     std::cout << " Checkpoint 2 " << std::endl;
 
     // Initialize the variants array
-    Variant variants[1];
+    Variant variants[100];
+
     variants[0].variant_num = 0;
     variants[0].recovery_time = 14;
     variants[0].mortality_rate = 0.015;
@@ -79,6 +80,15 @@ int main() {
     variants[0].infection_range = 3;
     variants[0].mutation_rate = 0.01;
     variants[0].immunity = 90;
+
+//    for (int i = 0; i < 2; i++) {
+//            std::cout << "Variant " << i  << " - Variant Number: " << variants[i].variant_num << ", Recovery Time: " << variants[i].recovery_time
+//                            << ", Mortality Rate: " << variants[i].mortality_rate
+//                           << ", Infection Rate: " << variants[i].infection_rate
+//                            << ", Infection Range: " << variants[i].infection_range << ", Mutation Rate: " << variants[i].mutation_rate
+//                            << ", Immunity: " << variants[i].immunity
+//    << std::endl;
+//        }
 
     // Generate random indexes for people to be infected
     //BUG: before this was calling randRangePos(config.starting_infected)
@@ -124,11 +134,13 @@ int main() {
 
     // print the variants
     std::cout << " ----------------------------------------- " << std::endl;
-    for (int i = 0; i < max_var; i++) {
-        std::cout << "Variant " << i << " - Variant Number: " << variants[i].variant_num << ", Recovery Time: " << variants[i].recovery_time
-                        << ", Mortality Rate: " << variants[i].mortality_rate << ", Infection Rate: " << variants[i].infection_rate
+    for (int i = 0; i < max_var+1; i++) {
+        std::cout << "Variant " << i  << " - Variant Number: " << variants[i].variant_num << ", Recovery Time: " << variants[i].recovery_time
+                        << ", Mortality Rate: " << variants[i].mortality_rate
+                       << ", Infection Rate: " << variants[i].infection_rate
                         << ", Infection Range: " << variants[i].infection_range << ", Mutation Rate: " << variants[i].mutation_rate
-                        << ", Immunity: " << variants[i].immunity << std::endl;
+                        << ", Immunity: " << variants[i].immunity
+<< std::endl;
     }
 
     return 0;

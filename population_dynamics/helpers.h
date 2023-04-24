@@ -75,11 +75,15 @@ double calculateDistance(const Person& person1, const Person& person2) {
 float addPossibleVariation(float num) {
     float variation = rand01();
     int multiplier = rand01() >= .5 ? 1 : -1;
+    std::cout << "num: " << num << " variation: " << variation << " multiplier: " << multiplier << std::endl;
+    std::cout << "return: " << num + (num * variation * multiplier) << std::endl;
     return num + (num * variation * multiplier);
 }
 
 float addPossibleVariationInt(int num) {
     float variation = rand01();
     int multiplier = rand01() >= .5 ? 1 : -1;
+    std::cout << "num: " << num << " variation: " << variation << " multiplier: " << multiplier << std::endl;
+    std::cout << "return: " << num + (num * variation * multiplier) << std::endl;
     return int(num + (num * variation * multiplier));
 }

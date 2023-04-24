@@ -4,7 +4,7 @@
 // I suggest testing with this set to 1 first!
 #define MAX_THREADS 8 // subject to change
 
-std::atomic<int> max_variant(1);
+std::atomic<int> max_variant(0);
 
 //create a 2D vector to store the board and all the people in each cell
 //std::vector<std::vector<std::vector<Person>>> board(BOARD_LENGTH, std::vector<std::vector<Person>>(BOARD_WIDTH));
@@ -150,9 +150,13 @@ void infect(Person *people, Variant *variants, int start, int end, int curr_day)
 //                            people[j].day_infected = curr_day;
                             people[j].variant = v.variant_num; //either variant from person infected, or small variation
                             float mutationProb = rand01();
-//                            if (mutationProb < v.mutation_rate) { //small chance of variation
-//                                people[j].variant = mutate(variants, v.variant_num);
-//                            }
+                            if (mutationProb < v.mutation_rate) { //small chance of variation
+                                std::cout << "mutation"
+                                          << "variant_num: " <<v.variant_num
+                                          << std::endl;
+
+                                people[j].variant = mutate(variants, v.variant_num);
+                            }
                         }
                     }
                 }
