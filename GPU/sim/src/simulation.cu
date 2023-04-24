@@ -281,11 +281,14 @@ __global__ void infectPeople(Variant* variants, int* positions, int *variant_cou
     int stride = blockDim.x * gridDim.x;
     for(int i = 0; i < POPULATION; i += stride)
     {
-
-        //check if the person is in the same cell as us
+        if(i == tid){
+            //don't compare to yourself
+            continue;
+        }
         if(positions[i] == our_position){
             //check if infection occurs
             if(immunity[i] < 1 && randomFloat(tid) < our_variant.infection_rate){
+                printf("Infection occured from person %d to %d", tid, i);
                 //infection occurs, check for mutation
                 if(randomFloat(tid) < our_variant.mutation_rate){
                     //mutation occurs, create a new variant
