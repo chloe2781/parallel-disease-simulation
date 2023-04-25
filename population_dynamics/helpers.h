@@ -9,11 +9,12 @@
 // Some helpful constants
 #define BOARD_LENGTH 50
 #define BOARD_WIDTH 50
-#define MAX_STARTING_POPULATION 253964
-#define NUM_TIME_PERIODS 365
+#define MAX_STARTING_POPULATION 100
+#define NUM_TIME_PERIODS 40
 #define MAX_MOVEMENT 8
 #define MAX_STARTING_INFECTED 5
 #define MAX_VARIANTS 10000
+#define INFECTION_RANGE 3
 
 // data structure to store configuration about the game
 // can be altered to test different factors
@@ -29,13 +30,26 @@ typedef struct {
 } GameConfig;
 
 // data structure to store information about a person
+
+/*
+  CONSIDER:
+  - status:
+     - -1: dead (bool dead)
+      - 0: alive but no infection (bool dead = true, bool infect = false, int day_infected = 0)
+      - >1: alive and infected (bool dead = true, bool infect = true, int day_infected = >1)
+  => from 8 components to 6 components
+
+  ** Could make immunity to be the date that the person died. Just a thought
+*/
+
 typedef struct {
     std::atomic<int> x;    // x location in grid
     std::atomic<int> y;    // y location in grid
-    int id;                // identifier for the person
-    bool infected;         // whether the person currently is infected (<14 days since day_infected)
-    int day_infected;      // latest timestep at which individual was infected
-    bool dead;             // whether the person is dead
+//    int id;                // identifier for the person
+//    bool infected;         // whether the person currently is infected (<14 days since day_infected)
+//    int day_infected;      // latest timestep at which individual was infected
+//    bool dead;             // whether the person is dead
+    int status;            // status of the person
     int variant;           // variant of the disease the person is infected with
     int immunity;          // number of days until the person is no longer immune
 } Person;
@@ -47,9 +61,9 @@ typedef struct {
     int recovery_time;               // days it takes to no longer be contagious
     float mortality_rate;            // percent chance on each day that a person dies
     float infection_rate;            // percent chance that a person within the infected range is infected
-    int infection_range;             // distance at which a person can be infected
+//    int infection_range;             // distance at which a person can be infected
     float mutation_rate;             // percent chance that an infection mutates upon infection of another person
-//    int immunity;                    // number of days until the person is no longer immune
+    int immunity;                    // number of days until the person is no longer immune
 } Variant;
 
 // random range integer in range [0,max_range)

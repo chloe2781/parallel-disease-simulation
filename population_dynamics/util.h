@@ -56,20 +56,23 @@ void die(Person *people, Variant *variants, int start, int end, int curr_day) {
 
     for (int i = start; i < end; i++) {
 
-      if (people[i].infected && people[i].dead == false) {
-        people[i].day_infected++; // increment time to account for current day we're on
+      // if person is infected, decrement day infected and update if they die
+      if (people[i].status > 0) {
+        people[i].status--; // increment time to account for current day we're on
         float prob = rand01();
         if (prob < variants[people[i].variant].mortality_rate) {
-          people[i].dead = true;
+          people[i].status = -1;
           continue;
         }
-//        int days_sick = curr_day - people[i].day_infected;
-        if (people[i].day_infected >= variants[people[i].variant].recovery_time) {
-          people[i].infected = false;
-          people[i].immunity = variants[people[i].variant].recovery_time;
-          people[i].day_infected = 0;
-        }
-      }else if (people[i].immunity > 0){
+
+      // if person is alive and not infected, update immunity
+      } else if (people[i].status == 0 && people[i].immunity < 1) {
+//        people[i].infected = false;
+        people[i].immunity = variants[people[i].variant].immunity;
+//        std::cout << "Person " << i << " is now immune" << std::endl;
+//        std::cout << "immunity: " << people[i].immunity << std::endl;
+//        people[i].day_infected = 0;
+      } else if (people[i].immunity > 0){
         people[i].immunity--;
       }
     }
@@ -86,7 +89,7 @@ int mutate(Variant *variants, int i){
     new_variant.mortality_rate = addPossibleVariation(variants[i].mutation_rate);
     new_variant.infection_rate = addPossibleVariation(variants[i].infection_rate);
     new_variant.mutation_rate = addPossibleVariation(variants[i].mutation_rate);
-//    new_variant.immunity = addPossibleVariationInt(variants[i].immunity);
+    new_variant.immunity = addPossibleVariationInt(variants[i].immunity);
     return max_variant;
 }
 
@@ -100,22 +103,25 @@ int mutate(Variant *variants, int i){
 void infect(Person *people, Variant *variants, int start, int end, int curr_day){
 
     for (int i = start; i < end; i++) {
-        if (people[i].infected and !people[i].dead) {
+        if (people[i].status > 0) {
             for (int j = 0; j < MAX_STARTING_POPULATION; j++) {
-                if (i != j && !people[j].infected && !people[j].dead && people[j].immunity == 0) {
+                if (i != j && people[j].status == 0 && people[j].immunity == 0) {
 
                     Variant& v = variants[people[i].variant];
 
-                    if (calculateDistance(people[i], people[j]) <= v.infection_range) {
+                    if (calculateDistance(people[i], people[j]) <= INFECTION_RANGE) {
 
                         float infectionProb = rand01();
                         if (infectionProb < v.infection_rate) {
-                            people[j].infected = true;
+//                            people[j].infected = true;
 //                            people[j].day_infected = curr_day;
-                            people[j].variant = v.variant_num; //either variant from person infected, or small variation
+//                            people[j].variant = v.variant_num; //either variant from person infected, or small variation
                             float mutationProb = rand01();
                             if (mutationProb < v.mutation_rate && max_variant < MAX_VARIANTS) { //small chance of variation
                                 people[j].variant = mutate(variants, v.variant_num);
+                            }else{
+                                people[j].variant = v.variant_num;
+                                people[j].status = v.recovery_time;
                             }
                         }
                     }
