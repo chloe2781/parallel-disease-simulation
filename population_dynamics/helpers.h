@@ -9,10 +9,11 @@
 // Some helpful constants
 #define BOARD_LENGTH 50
 #define BOARD_WIDTH 50
-#define MAX_STARTING_POPULATION 128
-#define NUM_TIME_PERIODS 128
+#define MAX_STARTING_POPULATION 253964
+#define NUM_TIME_PERIODS 365
 #define MAX_MOVEMENT 8
 #define MAX_STARTING_INFECTED 5
+#define MAX_VARIANTS 10000
 
 // data structure to store configuration about the game
 // can be altered to test different factors
@@ -48,7 +49,7 @@ typedef struct {
     float infection_rate;            // percent chance that a person within the infected range is infected
     int infection_range;             // distance at which a person can be infected
     float mutation_rate;             // percent chance that an infection mutates upon infection of another person
-    int immunity;                    // number of days until the person is no longer immune
+//    int immunity;                    // number of days until the person is no longer immune
 } Variant;
 
 // random range integer in range [0,max_range)
@@ -65,11 +66,22 @@ int randRangePos(int max_range){return rand() % max_range;}
 // random float in range [0,1]
 float rand01(){return (float)rand() / (float)RAND_MAX;}
 
+// Potential random number generator for mutating variants
+double generateRandomNumber() {
+    // Generate a random integer between 0 and 100
+    int randomInt = std::rand() % 101;
+    // Convert the random integer to a double between 0.0 and 0.01
+    double randomNumber = randomInt / 10000.0;
+    return randomNumber;
+}
+
 // Function to calculate distance between two people
+// Switched to manhattan distance for performance
 double calculateDistance(const Person& person1, const Person& person2) {
-    int dx = person1.x - person2.x;
-    int dy = person1.y - person2.y;
-    return std::sqrt(dx * dx + dy * dy);
+//    int dx = person1.x - person2.x;
+//    int dy = person1.y - person2.y;
+//    return std::sqrt(dx * dx + dy * dy);
+    return abs(person1.x - person2.x) + abs(person1.y - person2.y);
 }
 
 float addPossibleVariation(float num) {

@@ -1,15 +1,15 @@
 #include "util.h"
-#include <SDL2/SDL.h>
-
-void drawPerson(SDL_Renderer* renderer, const Person& person) {
-    // Set color to red
-    std::cout << person.dead << std::endl;
-    person.dead ? SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255) : SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-
-    // Draw a rectangle at the person's coordinates
-    SDL_Rect rect = { person.x*10, person.y*10, 10, 10 };
-    SDL_RenderFillRect(renderer, &rect);
-}
+//#include <SDL2/SDL.h>
+//
+//void drawPerson(SDL_Renderer* renderer, const Person& person) {
+//    // Set color to red
+//    std::cout << person.dead << std::endl;
+//    person.dead ? SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255) : SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+//
+//    // Draw a rectangle at the person's coordinates
+//    SDL_Rect rect = { person.x*10, person.y*10, 10, 10 };
+//    SDL_RenderFillRect(renderer, &rect);
+//}
 
 int main() {
 
@@ -51,7 +51,7 @@ int main() {
 //    std::cout << " Checkpoint 2 " << std::endl;
 
     // Initialize the variants array
-    Variant variants[100];
+    Variant variants[MAX_VARIANTS];
 
     variants[0].variant_num = 0;
     variants[0].recovery_time = 14;
@@ -59,7 +59,7 @@ int main() {
     variants[0].infection_rate = 0.5;
     variants[0].infection_range = 3;
     variants[0].mutation_rate = 0.01;
-    variants[0].immunity = 90;
+//    variants[0].immunity = 90;
 
     // Generate random indexes for people to be infected
     for (int i = 0; i < config.starting_infected; i++) {
@@ -124,7 +124,7 @@ int main() {
                   << ", Infection Rate: " << variants[i].infection_rate
                   << ", Infection Range: " << variants[i].infection_range
                   << ", Mutation Rate: " << variants[i].mutation_rate
-                  << ", Immunity: " << variants[i].immunity
+//                  << ", Immunity: " << variants[i].immunity
                   << std::endl;
     }
 
@@ -136,34 +136,34 @@ int main() {
 
     //std::printf("%s %.2f", "Percent Immune:", float(100) * (1 - float(end_immune_size)/float(config.start_population)));
 
-    SDL_Init(SDL_INIT_VIDEO);
-
-    // Create a window and renderer
-    SDL_Window* window = SDL_CreateWindow("Map", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 500, 500, SDL_WINDOW_SHOWN);
-    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-
-    for (int i = 0; i < config.start_population; i++) {
-        drawPerson(renderer, people[i]);
-    }
-
-    // Update the screen
-    SDL_RenderPresent(renderer);
-
-    // Wait for a key press before exiting
-    bool quit = false;
-    while (!quit) {
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                quit = true;
-            }
-        }
-    }
-
-    // Clean up SDL
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
+//    SDL_Init(SDL_INIT_VIDEO);
+//
+//    // Create a window and renderer
+//    SDL_Window* window = SDL_CreateWindow("Map", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 500, 500, SDL_WINDOW_SHOWN);
+//    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+//
+//    for (int i = 0; i < config.start_population; i++) {
+//        drawPerson(renderer, people[i]);
+//    }
+//
+//    // Update the screen
+//    SDL_RenderPresent(renderer);
+//
+//    // Wait for a key press before exiting
+//    bool quit = false;
+//    while (!quit) {
+//        SDL_Event event;
+//        while (SDL_PollEvent(&event)) {
+//            if (event.type == SDL_QUIT) {
+//                quit = true;
+//            }
+//        }
+//    }
+//
+//    // Clean up SDL
+//    SDL_DestroyRenderer(renderer);
+//    SDL_DestroyWindow(window);
+//    SDL_Quit();
 
     return 0;
 }

@@ -1,7 +1,7 @@
 #include "helpers.h"
 #include <thread>
 #include <atomic>
-#define MAX_THREADS 8 // subject to change
+#define MAX_THREADS 16 // subject to change
 
 std::atomic<int> max_variant(0);
 
@@ -86,7 +86,7 @@ int mutate(Variant *variants, int i){
     new_variant.mortality_rate = addPossibleVariation(variants[i].mutation_rate);
     new_variant.infection_rate = addPossibleVariation(variants[i].infection_rate);
     new_variant.mutation_rate = addPossibleVariation(variants[i].mutation_rate);
-    new_variant.immunity = addPossibleVariationInt(variants[i].immunity);
+//    new_variant.immunity = addPossibleVariationInt(variants[i].immunity);
     return max_variant;
 }
 
@@ -114,7 +114,7 @@ void infect(Person *people, Variant *variants, int start, int end, int curr_day)
 //                            people[j].day_infected = curr_day;
                             people[j].variant = v.variant_num; //either variant from person infected, or small variation
                             float mutationProb = rand01();
-                            if (mutationProb < v.mutation_rate) { //small chance of variation
+                            if (mutationProb < v.mutation_rate && max_variant < MAX_VARIANTS) { //small chance of variation
                                 people[j].variant = mutate(variants, v.variant_num);
                             }
                         }
