@@ -31,13 +31,11 @@ void move(Person *people, int start, int end) {
         // Wrap around the world size
         if (people[i].x >= BOARD_LENGTH) {
           people[i].x = BOARD_LENGTH -1;
-          std::cout << "x: " << people[i].x << std::endl;
         }
         else if (people[i].x <= 0) people[i].x = 1;
 
         if (people[i].y >= BOARD_WIDTH) {
           people[i].y = BOARD_WIDTH -1;
-          std::cout << "x: " << people[i].x << std::endl;
         }
         else if (people[i].y <= 0) people[i].y = 1;
 
@@ -117,10 +115,6 @@ void infect(Person *people, Variant *variants, int start, int end, int curr_day)
                             people[j].variant = v.variant_num; //either variant from person infected, or small variation
                             float mutationProb = rand01();
                             if (mutationProb < v.mutation_rate) { //small chance of variation
-                                std::cout << "mutation"
-                                          << "variant_num: " <<v.variant_num
-                                          << std::endl;
-
                                 people[j].variant = mutate(variants, v.variant_num);
                             }
                         }
