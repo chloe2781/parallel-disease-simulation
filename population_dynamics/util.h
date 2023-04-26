@@ -100,7 +100,8 @@ int mutate(Variant *variants, int i){
 void infect(Person *people, Variant *variants, int start, int end, int curr_day){
 
     for (int i = start; i < end; i++) {
-        if (people[i].status > 0) {
+        //ensure people are not dead AND we cannot infect someone unless they have been infected for at least 1 day
+        if (people[i].status > 0 && (people[i].status < variants[people[i].variant].recovery_time)) {
             for (int j = 0; j < MAX_STARTING_POPULATION; j++) {
                 if (i != j && people[j].status == 0 && people[j].immunity == 0) {
 
