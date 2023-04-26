@@ -71,6 +71,11 @@ int main() {
 
     // Generate random indexes for people to be infected
     std::set<int> infected_ids;
+
+    if (config.starting_infected > config.start_population) {
+        config.starting_infected = config.start_population;
+    }
+
     for (int i = 0; i < config.starting_infected; i++) {
         int id;
         do {
@@ -124,10 +129,12 @@ int main() {
 
     int end_population_size = 0;
     int end_immune_size = 0;
+    int num_never_infected = 0;
     // print the people after the simulation
     for (int i = 0; i < config.start_population; i++) {
         end_population_size += people[i].status < 0 ? 0 : 1;
         end_immune_size += people[i].immunity ? 1 : 0;
+        num_never_infected += people[i].immunity == -1 && people[i].status == 0 ? 1 : 0;
         std::cout << "Person " << i
 //                  << " - ID: " << people[i].id
                   << ", X: " << people[i].x
@@ -157,8 +164,9 @@ int main() {
     std::cout << "Time taken by disease_simulation: " << duration.count() << " microseconds" << std::endl;
     std::cout << "Start population size: " << config.start_population << std::endl;
     std::cout << "Ending population size: " << end_population_size << std::endl;
-    std::printf("%s %.2f", "Mortality Rate:", float(100) * (1 - float(end_population_size)/float(config.start_population)));
-    std::cout << '\n' << std::endl;
+    std::printf("%s %.2f\n", "Mortality Rate:", float(100) * (1 - float(end_population_size)/float(config.start_population)));
+    std::printf("%s %.2f\n", "Infection Rate:", float(100) * (MAX_STARTING_POPULATION - num_never_infected)/MAX_STARTING_POPULATION);
+
 
     //std::printf("%s %.2f", "Percent Immune:", float(100) * (1 - float(end_immune_size)/float(config.start_population)));
 
