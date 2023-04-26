@@ -5,11 +5,8 @@
 
 std::atomic<int> max_variant(0);
 
-//create a 2D vector to store the board and all the people in each cell
-//std::vector<std::vector<std::vector<Person>>> board(BOARD_LENGTH, std::vector<std::vector<Person>>(BOARD_WIDTH));
-
 //create a flat vector to store the board and all the people in each cell
- std::vector<std::vector<Person>> board(BOARD_WIDTH * BOARD_LENGTH);
+// std::vector<std::vector<Person>> board(BOARD_WIDTH * BOARD_LENGTH);
 
 /* function to move ONE person within a fixed distance
    randomly move on both axes

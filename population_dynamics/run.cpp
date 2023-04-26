@@ -1,4 +1,8 @@
 #include "util.h"
+#include <iostream>
+#include <chrono>
+
+
 //#include <SDL2/SDL.h>
 //
 //void drawPerson(SDL_Renderer* renderer, const Person& person) {
@@ -90,8 +94,17 @@ int main() {
 
 //    std::cout << " Checkpoint 4 " << std::endl;
 
+
+    //time the simulation
+    auto start = std::chrono::high_resolution_clock::now(); // Start time
+
     // simulate
     int max_var = disease_simulation(people, variants, config.end_day);
+
+    //stop timer
+    auto stop = std::chrono::high_resolution_clock::now(); // Stop time
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+
 
 //    std::cout << " Checkpoint 5 " << std::endl;
 
@@ -132,6 +145,7 @@ int main() {
 
     std::cout << " ----------------------------------------- \n" << std::endl;
     std::cout << "Statistics" << std::endl;
+    std::cout << "Time taken by disease_simulation: " << duration.count() << " microseconds" << std::endl;
     std::cout << "Start population size: " << config.start_population << std::endl;
     std::cout << "Ending population size: " << end_population_size << std::endl;
     std::printf("%s %.2f", "Mortality Rate:", float(100) * (1 - float(end_population_size)/float(config.start_population)));
