@@ -7,14 +7,14 @@
 #include <cmath>
 
 // Some helpful constants
-#define BOARD_LENGTH 50
-#define BOARD_WIDTH 50
-#define MAX_STARTING_POPULATION 100
-#define NUM_TIME_PERIODS 40
+#define BOARD_LENGTH 100
+#define BOARD_WIDTH 100
+#define MAX_STARTING_POPULATION 10000
+#define NUM_TIME_PERIODS 365
 #define MAX_MOVEMENT 8
-#define MAX_STARTING_INFECTED 5
+#define MAX_STARTING_INFECTED 1
 #define MAX_VARIANTS 10000
-#define INFECTION_RANGE 3
+#define INFECTION_RANGE 2
 
 // data structure to store configuration about the game
 // can be altered to test different factors
@@ -36,8 +36,8 @@ typedef struct {
   - status:
      - -1: dead (bool dead)
       - 0: alive but no infection (bool dead = true, bool infect = false, int day_infected = 0)
-      - >1: alive and infected (bool dead = true, bool infect = true, int day_infected = >1)
-  => from 8 components to 6 components
+      - >0: alive and infected (bool dead = true, bool infect = true, int day_infected = >1)
+  => from 8 members to 5 members
 
   ** Could make immunity to be the date that the person died. Just a thought
 */

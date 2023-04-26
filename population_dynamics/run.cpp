@@ -64,8 +64,7 @@ int main() {
     variants[0].variant_num = 0;
     variants[0].recovery_time = 14;
     variants[0].mortality_rate = 0.015;
-    variants[0].infection_rate = 0.5;
-//    variants[0].infection_range = 3;
+    variants[0].infection_rate = 0.3;
     variants[0].mutation_rate = 0.001;
     variants[0].immunity = 90;
 
@@ -130,11 +129,13 @@ int main() {
     int end_population_size = 0;
     int end_immune_size = 0;
     int num_never_infected = 0;
+    int num_immunity = 0;
     // print the people after the simulation
     for (int i = 0; i < config.start_population; i++) {
         end_population_size += people[i].status < 0 ? 0 : 1;
         end_immune_size += people[i].immunity ? 1 : 0;
         num_never_infected += people[i].immunity == -1 && people[i].status == 0 ? 1 : 0;
+        num_immunity += people[i].immunity > 0 ? 1 : 0;
         std::cout << "Person " << i
 //                  << " - ID: " << people[i].id
                   << ", X: " << people[i].x
@@ -159,6 +160,11 @@ int main() {
                   << std::endl;
     }
 
+    // HERD IMMUNITY
+    // status < 1 for all people => disease is gone => herd immunity
+    // mortality rate = 100 => everyone died
+    // immunity > 0
+
     std::cout << " ----------------------------------------- \n" << std::endl;
     std::cout << "Statistics" << std::endl;
     std::cout << "Time taken by disease_simulation: " << duration.count() << " microseconds" << std::endl;
@@ -166,6 +172,7 @@ int main() {
     std::cout << "Ending population size: " << end_population_size << std::endl;
     std::printf("%s %.2f\n", "Mortality Rate:", float(100) * (1 - float(end_population_size)/float(config.start_population)));
     std::printf("%s %.2f\n", "Infection Rate:", float(100) * (MAX_STARTING_POPULATION - num_never_infected)/MAX_STARTING_POPULATION);
+    std::printf("%s %.2f\n", "Immunity Rate:", float(100) * float(num_immunity)/float(config.start_population));
 
 
     //std::printf("%s %.2f", "Percent Immune:", float(100) * (1 - float(end_immune_size)/float(config.start_population)));
