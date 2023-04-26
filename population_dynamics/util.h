@@ -54,7 +54,7 @@ void die(Person *people, Variant *variants, int start, int end, int curr_day) {
     for (int i = start; i < end; i++) {
 
       // if person is infected, decrement day infected and update if they die
-      if (people[i].status > 0) {
+      if (people[i].status > 1) {
         people[i].status--; // increment time to account for current day we're on
         float prob = rand01();
         if (prob < variants[people[i].variant].mortality_rate) {
@@ -63,8 +63,9 @@ void die(Person *people, Variant *variants, int start, int end, int curr_day) {
         }
 
       // if person is alive and not infected, update immunity
-      } else if (people[i].status == 0 && people[i].immunity < 1) {
+      } else if (people[i].status == 1 && people[i].immunity < 1) {
 //        people[i].infected = false;
+        people[i].status--; // increment time to account for current day we're on
         people[i].immunity = variants[people[i].variant].immunity;
 //        std::cout << "Person " << i << " is now immune" << std::endl;
 //        std::cout << "immunity: " << people[i].immunity << std::endl;
