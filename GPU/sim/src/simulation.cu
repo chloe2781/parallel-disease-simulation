@@ -9,6 +9,9 @@
 #include <atomic>
 #include <iostream>
 
+//THIS CODE SPONSORED BY SHADOW WIZARD MONEY GANG
+//"We love casting spells"
+
 __host__ void simulation() {
 
         //Sim Variables
@@ -32,7 +35,9 @@ __host__ void simulation() {
         // whether the person is dead, 0 or positive is alive and negative is dead
         // also used to keep track of infection time where value of alive keeps track of infection period
         int* dead = new int[(POPULATION)]; 
-
+        //TODO: handle the case of preventing fresh infections from infecting others
+        //current implementation is naive, but works (at a 4 byte cost per person)
+        bool* fresh = new bool[(POPULATION)];
         //current memory footprint
         //per person: 
         //overall sim:
@@ -46,9 +51,10 @@ __host__ void simulation() {
             variant[i] = -1;
             immunity[i] = 0;
             dead[i] = 0;
+            fresh[i] = false;
         }
 
-        //place 2 people in the sim
+        //place 2 people in the sim together
         positions[0] = 128 * 256 + 128;
         positions[1] = 128 * 256 + 128;
 
@@ -57,21 +63,26 @@ __host__ void simulation() {
         Variant v {};
         v.id = 0,
         v.recovery_time = 10;
-        v.mortality_rate = 0;
-        v.infection_rate = 1;
-        v.mutation_rate = 0;
+        v.mortality_rate = 0.0;
+        v.infection_rate = 1.0;
+        v.mutation_rate = 0.0;
         v.immunity_time = 10;
         
         variants[0] = v;
 
+
         //infect the first person with the variant
         variant[0] = 0;
+        dead[0] = 10;
 
+        //infect someone else with the variant
+        variant[2] = 0;
+        dead[2] = 10;
 
         //show initial values
         printf("Initial Values:\n");
         for (int i = 0; i < POPULATION; i++) {
-            printf("Person %d is at position (%d, %d). Infected: %d, Immunity: %d, Dead: %d\n", i, positions[i] % GRID_SIZE, positions[i] / GRID_SIZE, variant[i], immunity[i], dead[i]);
+            printf("Person %d is at position (%d, %d). Fresh: %d Variant: %d, Immunity: %d, Dead: %d\n", i, positions[i] % GRID_SIZE, positions[i] / GRID_SIZE, fresh[i], variant[i], immunity[i], dead[i]);
         }
         printf("==============================================================================\n");
 
@@ -87,6 +98,7 @@ __host__ void simulation() {
         int *d_variant = NULL;
         int *d_immunity = NULL;
         int* d_dead = NULL;
+        bool* d_fresh = NULL;
 
         printf("Allocating GPU memory\n");
         cudaMalloc((void**)&d_cell_grid_first, sizeof(int) * GRID_SIZE * GRID_SIZE);
@@ -100,6 +112,7 @@ __host__ void simulation() {
         cudaMalloc((void**)&d_variant, sizeof(int) * (POPULATION));
         cudaMalloc((void**)&d_immunity, sizeof(int) * (POPULATION));
         cudaMalloc((void**)&d_dead, sizeof(int) * (POPULATION));
+        cudaMalloc((void**)&d_fresh, sizeof(bool) * (POPULATION));
         cudaCheck("Error allocating GPU memory");
 
         printf("Copying data to GPU\n");
@@ -114,28 +127,32 @@ __host__ void simulation() {
         cudaMemcpy(d_variant,           variant, sizeof(int) * (POPULATION),                    cudaMemcpyHostToDevice);
         cudaMemcpy(d_immunity,          immunity, sizeof(int) * (POPULATION),                   cudaMemcpyHostToDevice);
         cudaMemcpy(d_dead, dead,        sizeof(int) * (POPULATION),                             cudaMemcpyHostToDevice);
+        cudaMemcpy(d_fresh, fresh,      sizeof(bool) * (POPULATION),                            cudaMemcpyHostToDevice);
         cudaCheck("Error copying data to GPU");
 
         // run the gpu code once
         for(int i = 0; i < EPOCHS; i++){
             printf("Epoch %d =====================================================================\n", i + 1);
-            printf("movePeople - ");
-            movePeople<<<MOVE_BLOCKS, MOVE_THREADS>>>(d_position);
+            printf("movePeople\n");
+            //movePeople<<<MOVE_BLOCKS, MOVE_THREADS>>>(d_position, i);
             cudaDeviceSynchronize();
             cudaCheck("movePeople error");
-            printf("infectPeople - ");
-            infectPeople<<<INFECTION_THREADS, INFECTION_THREADS>>>(d_variants, d_position, d_variant_count, d_variant_cap, d_variant, d_immunity, d_dead);
+            printf("infectPeople\n");
+            infectPeople<<<INFECTION_BLOCKS, INFECTION_THREADS>>>(d_variants, d_position, d_variant_count, d_variant_cap, d_variant, d_immunity, d_dead, d_fresh);
             cudaDeviceSynchronize();
             cudaCheck("infectPeople error");
-            printf("killPeople - ");
+            //TODO: zero the dead array
+            //printf("zeroDead");
+            //zeroDead<<<ZERO_DEAD_BLOCKS, ZERO_DEAD_THREADS>>>(d_dead);
+            printf("killPeople\n");
             killPeople<<<KILL_BLOCKS,KILL_THREADS>>>(d_variants, d_variant, d_dead);
             cudaDeviceSynchronize();
             cudaCheck("killPeople error");
             printf("tick\n");
-            tick<<<TICK_BLOCKS,TICK_THREADS>>>(d_variants, d_immunity, d_variant, d_dead);
+            tick<<<TICK_BLOCKS,TICK_THREADS>>>(d_variants, d_immunity, d_variant, d_dead, d_fresh);
             cudaDeviceSynchronize();
             cudaCheck("tick error");
-            gpuPeek<<<1, 1>>>(d_position, d_variant, d_immunity, d_dead);
+            gpuPeek<<<1, 1>>>(d_position, d_variant, d_immunity, d_dead, d_fresh);
             cudaDeviceSynchronize();
             cudaCheck("gpuPeek error");
 
@@ -153,13 +170,14 @@ __host__ void simulation() {
         cudaMemcpy(variant,             d_variant, sizeof(int) * (POPULATION),                  cudaMemcpyDeviceToHost);
         cudaMemcpy(immunity,            d_immunity, sizeof(int) * (POPULATION),                 cudaMemcpyDeviceToHost);
         cudaMemcpy(dead,                d_dead, sizeof(int) * (POPULATION),                     cudaMemcpyDeviceToHost);
+        cudaMemcpy(fresh,               d_fresh, sizeof(bool) * (POPULATION),                   cudaMemcpyDeviceToHost);
         cudaCheck("Error copying data back to CPU");
 
         //print out the positions of all the people
         printf("====================================\n");
         printf("Final Values:\n");
         for (int i = 0; i < POPULATION; i++) {
-            printf("Person %d is at position (%d, %d). Infected: %d, Immunity: %d, Dead: %d\n", i, positions[i] % GRID_SIZE, positions[i] / GRID_SIZE, variant[i], immunity[i], dead[i]);
+            printf("Person %d is at position (%d, %d). Fresh: %d Variant: %d, Immunity: %d, Dead: %d\n", i, positions[i] % GRID_SIZE, positions[i] / GRID_SIZE, fresh[i], variant[i], immunity[i], dead[i]);
         }
 
         printf("Freeing GPU memory\n");
@@ -174,13 +192,14 @@ __host__ void simulation() {
         cudaFree(d_variant);
         cudaFree(d_immunity);
         cudaFree(d_dead);
+        cudaFree(d_fresh);
         cudaCheck("Error freeing GPU memory");
 }
 
-__global__ void gpuPeek(int* positions, int* variant, int* immunity, int* dead){
+__global__ void gpuPeek(int* positions, int* variant, int* immunity, int* dead, bool* fresh){
     //expected to be 1 thread, 1 block
     for (int i = 0; i < POPULATION; i++) {
-        printf("Person %d is at position (%d, %d). Infected: %d, Immunity: %d, Dead: %d\n", i, positions[i] % GRID_SIZE, positions[i] / GRID_SIZE, variant[i], immunity[i], dead[i]);
+        printf("Person %d is at position (%d, %d). Fresh: %d Variant: %d, Immunity: %d, Dead: %d\n", i, positions[i] % GRID_SIZE, positions[i] / GRID_SIZE, fresh[i], variant[i], immunity[i], dead[i]);
     }
 }
 
@@ -193,7 +212,7 @@ void cudaCheck(const std::string &message){
 }
 //TODO: replace two kernel calls with one, and just barrier sync
 // move people randomly around the grid
-__global__ void movePeople(int *positions) {
+__global__ void movePeople(int *positions, int epoch) {
     //move every person in the grid a random amount in each direction
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
     int stride = blockDim.x * gridDim.x;
@@ -205,11 +224,12 @@ __global__ void movePeople(int *positions) {
     for(int i = tid; i < POPULATION; i += stride){
         int position = positions[i];
 
-        //get movements
-        int rand_x = randomMovement(tid);
-        //offset the input to randomMovement to get a different number
-        int rand_y = randomMovement(tid + 1);
-
+        //TODO: do this with only one random number
+        //get movements, adding in the epoch to make sure they are different
+        //add in the total number of threads to make sure they are different for rand_y
+        int rand_x = randomMovement(tid + epoch);
+        int rand_y = randomMovement(tid + epoch + (threadIdx.x * blockDim.x * gridDim.x));
+        printf("Person %d is moving (%d, %d)", i, rand_x, rand_y);
         //add the movements back into position
         int x = position % GRID_SIZE;
         int y = position / GRID_SIZE;
@@ -227,7 +247,7 @@ __global__ void movePeople(int *positions) {
 __global__ void updateCellOccupancy(int *cell_grid_first, int *cell_grid_last, int *positions, int *next){
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
     int stride = blockDim.x * gridDim.x;
-    if (tid > POPULATION){
+    if (tid >= POPULATION){
         return;
     }
     //iterate over people, updating the cell grid for each person
@@ -257,54 +277,88 @@ __global__ void updateCellOccupancy(int *cell_grid_first, int *cell_grid_last, i
 }
 
 //this function will update the infection status based on people sharing cells
-__global__ void infectPeople(Variant* variants, int* positions, int *variant_count, int *variant_cap, int* variant, int* immunity, int* dead) {
+__global__ void infectPeople(Variant* variants, int* positions, int *variant_count, int *variant_cap, int* variant, int* immunity, int* dead, bool* fresh) {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    if (tid > POPULATION){
-        //nothing to do
-        return;
-    }
-
-    if (dead[tid] < 0) {
-        // dead, cannot infect anyone
-        return;
-    }
-
-    if(variant[tid] < 0){
-        //uninfected, cannot infect anyone
-        return;
-    }
-    //get the variant of the person
-    Variant our_variant = variants[variant[tid]];
-    //get the position of the person
-    int our_position = positions[tid];
-    //iterate over everyone, comparing them to the tid'th person to see if they are infected
     int stride = blockDim.x * gridDim.x;
-    for(int i = 0; i < POPULATION; i += stride)
-    {
-        if(i == tid){
-            //don't compare to yourself
+    //handle threads > population
+    if (tid >= POPULATION){
+        printf("Unused thread\n");
+        return;
+    }
+
+    for (int src = tid; src < POPULATION; src += stride) {
+        //get source person details in outer loop
+        Variant src_variant = variants[variant[tid]];
+        int src_pos = positions[src];
+        //dead do not infect
+        if(dead[src] < 0){
+            printf("T%d - Ignore %d, dead\n", tid, src);
             continue;
         }
-        if(positions[i] == our_position){
-            //check if infection occurs
-            if(immunity[i] < 1 && randomFloat(tid) < our_variant.infection_rate){
-                printf("Infection occured from person %d to %d", tid, i);
-                //infection occurs, check for mutation
-                if(randomFloat(tid) < our_variant.mutation_rate){
-                    //mutation occurs, create a new variant
-                    int new_variant = createVariant(variants, variant_count, variant_cap, variant[tid]);
-                    variant[i] = new_variant;
-
-                    // Set recovery time for person
-                    dead[i] = variants[new_variant].recovery_time;
-                } else {
-                    //congrats you caught the same variant
-                    variant[i] = variant[tid];
-
-                    // Set recovery time for person
-                    dead[i] = variants[variant[tid]].recovery_time;
-                }
-            } //lucky them
+        //uninfected do not infect
+        if(variant[src] < 0){
+            printf("T%d - Ignore %d, uninfected\n", tid, src);
+            continue;
+        }
+        //fresh infections do not infect
+        if(fresh[src]){
+            printf("T%d - Ignore %d, fresh\n", tid, src);
+            continue;
+        }
+        for (int dst_offset = 0; dst_offset < POPULATION; dst_offset++) {
+            int dst = (src + tid + dst_offset) % POPULATION;
+            int dst_pos = positions[dst];
+            //ignore immune
+            if(immunity[dst] > 0){
+                printf("T%d - %d Ignore %d, immune\n", tid, src, dst);
+                continue;
+            }
+            //ignore already infected
+            if(variant[dst] >= 0){
+                printf("T%d - %d Ignore %d, already infected\n", tid, src, dst);
+                continue;
+            }
+            //ignore dead
+            if(dead[dst] < 0){
+                printf("T%d - %d Ignore %d, dead\n", tid, src, dst);
+                continue;
+            }
+            //ignore self
+            if(src == dst){
+                printf("T%d - %d Ignore %d, self\n", tid, src, dst);
+                continue;
+            }
+            printf("T%d - Checking: %d and %d\n", tid, src, dst);
+            //check if cell shared
+            if(src_pos == dst_pos){
+                printf("T%d - Pos Match: %d to %d\n", tid, src, dst);
+                //check for infection
+                if(randomFloat(dst) < src_variant.infection_rate){
+                    //check for mutation
+                    if(randomFloat(dst) < src_variant.mutation_rate){
+                        //atomicCAS the fresh infection to true
+                        if(atomicCAS(&fresh[dst], 0, 1) == 0){
+                            //give new variant to dst person
+                            printf("T%d - Mutation: P%d to P%d\n", tid, src, dst);
+                            int dst_variant = createVariant(variants, variant_count, variant_cap, variant[src]);
+                            variant[dst] = dst_variant;
+                            dead[dst] = variants[dst_variant].recovery_time;
+                        } else {
+                            printf("T%d - %d Ignore %d, contended\n", tid, src, dst);
+                        } //else, someone else got there first
+                    } else {
+                        //atomicCAS the fresh infection to true
+                        if(atomicCAS(&fresh[dst], 0, 1) == 0){
+                            //give same variant to dst person
+                            printf("T%d - Infection: P%d to P%d\n", tid, src, dst);
+                            variant[dst] = variant[src];
+                            dead[dst] = variants[variant[src]].recovery_time;
+                        } else {
+                            printf("T%d - %d Ignore %d, contended\n", tid, src, dst);
+                        } //else, someone else got there first
+                    }
+                } //lucky them
+            }
         }
     }
 }
@@ -351,7 +405,7 @@ __device__ int createVariant(Variant *variants, int *variant_count, int *variant
 // Kills people based on variant mortality rate
 __global__ void killPeople(Variant* variants, int* variant, int* dead) {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    if (tid > POPULATION){
+    if (tid >= POPULATION){
         return;
     }
 
@@ -373,26 +427,27 @@ __global__ void killPeople(Variant* variants, int* variant, int* dead) {
 }
 
 // Ticks immunity and infection times for individuals
-__global__ void tick(Variant* variants, int* immunity, int* variant, int* dead) {
+__global__ void tick(Variant* variants, int* immunity, int* variant, int* dead, bool* fresh) {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    if (tid > POPULATION){
+    if (tid >= POPULATION){
         return;
     }
 
     int stride = blockDim.x * gridDim.x;
     for (int i = tid; i < POPULATION; i += stride) {
+
         if (dead[i] < 0) {
             // dead, cannot tick
             return;
         }
 
         // Tick immunity time
-        immunity[i] = max(immunity[i]--, -1);
+        immunity[i] = ::max(--immunity[i], -1);
 
-        //currently infected but survived
-        if (dead[i] > 0) {
+        //currently infected but survived, don't tick fresh
+        if (dead[i] > 0 && fresh[i] == false) {
             // Tick infection time
-            dead[i] = max(dead[i]--, 0);
+            dead[i] = ::max(--dead[i], 0);
             return;
         }
 
@@ -407,9 +462,7 @@ __global__ void tick(Variant* variants, int* immunity, int* variant, int* dead) 
     }
 }
 
-
-
-// device function to make a random number
+// device function to make a random movement
 __device__ int randomMovement(int thread_id) {
     curandState_t state;
     curand_init(RANDOM_SEED, thread_id, 0, &state);
@@ -417,10 +470,13 @@ __device__ int randomMovement(int thread_id) {
     return curand_uniform(&state) * (MOVE_RANGE * 2) - MOVE_RANGE;
 }
 
+// device function to make a random float between 0 and 1
 __device__ float randomFloat(int thread_id) {
     curandState_t state;
     curand_init(RANDOM_SEED, thread_id, 0, &state);
-    return curand_uniform(&state);
+    float result = curand_uniform(&state);
+    //printf("Random float: %f\n", result);
+    return result;
 }
 
 //TODO: test inline

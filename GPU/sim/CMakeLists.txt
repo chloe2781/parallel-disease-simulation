@@ -5,7 +5,7 @@ enable_language(CUDA)
 # add include to the header search path
 include_directories(include)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
-set(CUDA_ARCHITECTURES 61 70 75 80 86)
+set(CUDA_ARCHITECTURES 75)
 
 # add main.cu to the list of sources
 file(GLOB SOURCES "src/*.cpp" "src/*.cu" "src/main.cu")
