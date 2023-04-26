@@ -30,7 +30,7 @@ __host__ void simulation() {
         int* positions = new int[(POPULATION)];
         //variant[value] = ID of variant, negative value if not infected
         int* variant = new int[(POPULATION)];
-        //time remaining until immunity expires, 0 or negative if no longer immune
+        //time remaining until immunity expires, negative if no longer immune
         int* immunity = new int[(POPULATION)];
         // whether the person is dead, 0 or positive is alive and negative is dead
         // also used to keep track of infection time where value of alive keeps track of infection period
@@ -38,9 +38,16 @@ __host__ void simulation() {
         //TODO: handle the case of preventing fresh infections from infecting others
         //current implementation is naive, but works (at a 4 byte cost per person)
         bool* fresh = new bool[(POPULATION)];
-        //current memory footprint
-        //per person: 
-        //overall sim:
+
+        int sim_bytes_used = 0;
+        int people_bytes_used = 0;
+        sim_bytes_used += sizeof(int) * GRID_SIZE * GRID_SIZE * 2; //cell_grid_first, cell_grid_last
+        sim_bytes_used += sizeof(int) * GRID_SIZE * GRID_SIZE; //next
+        sim_bytes_used += sizeof(Variant) * variant_cap; //variants
+        people_bytes_used += sizeof(int) * (POPULATION) * 4; //positions, variant, immunity, dead
+        people_bytes_used += sizeof(bool) * (POPULATION); //fresh
+        printf("Sim memory footprint: %d bytes\n", sim_bytes_used);
+        printf("People memory footprint: %d bytes\n", people_bytes_used);
 
         //initialize on host
         printf("Initializing data\n");
@@ -49,7 +56,7 @@ __host__ void simulation() {
         for (int i = 0; i < POPULATION; i++) {
             positions[i] = 0;
             variant[i] = -1;
-            immunity[i] = 0;
+            immunity[i] = -1;
             dead[i] = 0;
             fresh[i] = false;
         }
@@ -62,22 +69,21 @@ __host__ void simulation() {
         variant_count = 1;
         Variant v {};
         v.id = 0,
-        v.recovery_time = 10;
+        v.recovery_time = 2;
         v.mortality_rate = 0.0;
         v.infection_rate = 1.0;
-        v.mutation_rate = 0.0;
-        v.immunity_time = 10;
+        v.mutation_rate = 1.0;
+        v.immunity_time = 2;
         
         variants[0] = v;
 
-
         //infect the first person with the variant
         variant[0] = 0;
-        dead[0] = 10;
+        dead[0] = v.recovery_time;
 
         //infect someone else with the variant
         variant[2] = 0;
-        dead[2] = 10;
+        dead[2] = v.recovery_time;
 
         //show initial values
         printf("Initial Values:\n");
@@ -145,7 +151,7 @@ __host__ void simulation() {
             //printf("zeroDead");
             //zeroDead<<<ZERO_DEAD_BLOCKS, ZERO_DEAD_THREADS>>>(d_dead);
             printf("killPeople\n");
-            killPeople<<<KILL_BLOCKS,KILL_THREADS>>>(d_variants, d_variant, d_dead);
+            killPeople<<<KILL_BLOCKS,KILL_THREADS>>>(d_variants, d_variant, d_dead, d_fresh);
             cudaDeviceSynchronize();
             cudaCheck("killPeople error");
             printf("tick\n");
@@ -155,6 +161,13 @@ __host__ void simulation() {
             gpuPeek<<<1, 1>>>(d_position, d_variant, d_immunity, d_dead, d_fresh);
             cudaDeviceSynchronize();
             cudaCheck("gpuPeek error");
+            showVariants<<<1, 1>>>(d_variants, d_variant_count);
+            cudaDeviceSynchronize();
+            cudaCheck("showVariants error");
+            //zero the fresh array
+            cudaMemset(d_fresh, 0, POPULATION*sizeof(bool));
+            cudaCheck("gpuPeek error");
+            
 
         }
         printf("Epochs complete\n");
@@ -194,6 +207,15 @@ __host__ void simulation() {
         cudaFree(d_dead);
         cudaFree(d_fresh);
         cudaCheck("Error freeing GPU memory");
+}
+
+__global__ void showVariants(Variant* variants, int * variant_count){
+    //expected to be 1 thread, 1 block
+    printf("Current Variants =====================================================================\n");
+    for (int i = 0; i < *variant_count; i++) {
+        //use the Variant.toString() method
+        printf("Variant %d - mort: %f, inf: %f, mut: %f, rec: %d, imm: %d\n", i, variants[i].mortality_rate, variants[i].mutation_rate, variants[i].immunity_time, variants[i].recovery_time, variants[i].immunity_time);
+    }
 }
 
 __global__ void gpuPeek(int* positions, int* variant, int* immunity, int* dead, bool* fresh){
@@ -363,11 +385,44 @@ __global__ void infectPeople(Variant* variants, int* positions, int *variant_cou
     }
 }
 
+//takes a pointer to a float and overwrites it with a new float +- MUTATION_RANGE% of the original
+//no if statements
+__device__ float mutate_helper(float &original, int seed) {
+    float rand_percent = 2 * randomFloat(seed) - 1;
+    //edit the original value by a random percentage
+    original *= 1 + rand_percent * MUTATION_RANGE;
+    original = max(original, 0.0f);
+    original = min(original, 1.0f);
+}
+
+__device__ int int_mutate_helper(int &original, int seed){
+    //due to int rounding, small values will get "stuck" at 1 or 0 so minimum mutation is is +- 1 for ints
+    float rand_percent = 2 * randomFloat(seed) - 1;
+    float mutation = rand_percent * MUTATION_RANGE * original;
+    //edit the original value by a random percentage
+    if(abs(mutation) < 1){
+        mutation = mutation > 0 ? 1 : -1;
+    }
+    original += mutation;
+    original = max(original, 1);
+}
+
 //device function to create a variant
 __device__ int createVariant(Variant *variants, int *variant_count, int *variant_cap, int source_variant) {
+    printf("Variant created: %d\n", *variant_count);
+    printf("====================================\n");
+    printf("Old variant data");
+    printf("id: %d\n", variants[source_variant].id);
+    printf("mutation_rate: %f\n", variants[source_variant].mutation_rate);
+    printf("infection_rate: %f\n", variants[source_variant].infection_rate);
+    printf("mortality_rate: %f\n", variants[source_variant].mortality_rate);
+    printf("recovery_time: %d\n", variants[source_variant].recovery_time);
+    printf("immunity_time: %d\n", variants[source_variant].immunity_time);
+    printf("====================================\n");
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
     //check if we need to reallocate the variants array    
     if(*variant_count == *variant_cap){
+        printf("Resizing variants\n");
         *variant_cap *= 2;
         //realloc not allowed, but memcpy and malloc are
         Variant *new_variants = (Variant*)malloc(sizeof(Variant) * (*variant_cap));
@@ -379,31 +434,33 @@ __device__ int createVariant(Variant *variants, int *variant_count, int *variant
         variants = new_variants;
     }
 
-    float mutation_range = variants[source_variant].mutation_rate;
-    //create the new variant, based on the index of the source variant
+    //create the new variant, copy the old variant
     Variant new_variant = variants[source_variant];
+    new_variant.id = *variant_count;
     //change the parameters of the new variant by up to MUTATION_RANGE
-    new_variant.mortality_rate *= (1 + randomFloat(tid) * mutation_range * 2 - mutation_range);
-    new_variant.infection_rate *= (1 + randomFloat(tid) * mutation_range * 2 - mutation_range);
-    new_variant.mutation_rate *= (1 + randomFloat(tid) * mutation_range * 2 - mutation_range);
-
-    float recovery_change = randomFloat(tid) * mutation_range * 2 - mutation_range;
-    float immunity_change = randomFloat(tid) * mutation_range * 2 - mutation_range;
-    //floor a negative recovery change, ceil a positive recovery change
-    new_variant.recovery_time += (recovery_change < 0 ? floor(recovery_change) : ceil(recovery_change));
-    new_variant.immunity_time += (immunity_change < 0 ? floor(immunity_change) : ceil(immunity_change));
-    //prevent negative recovery time or immunity time
-    new_variant.recovery_time = max(new_variant.recovery_time, 1);
-    new_variant.immunity_time = max(new_variant.immunity_time, 1);
+    mutate_helper(new_variant.mortality_rate, tid + 1);
+    mutate_helper(new_variant.infection_rate, tid + 2);
+    mutate_helper(new_variant.mutation_rate, tid + 3);
+    //cap the floats at 0 and 1
+    int_mutate_helper(new_variant.recovery_time, tid + 4);
+    int_mutate_helper(new_variant.immunity_time, tid + 5);
     //put this variant in the variants array, increment the variant count, and return the index of the new variant
-    //do this atomically, multiple threads may be trying to create variants at the same time
     int new_variant_index = atomicAdd(variant_count, 1);
     variants[new_variant_index] = new_variant;
+    printf("====================================\n");
+    printf("New variant data");
+    printf("id: %d\n", new_variant.id);
+    printf("mutation_rate: %f\n", new_variant.mutation_rate);
+    printf("infection_rate: %f\n", new_variant.infection_rate);
+    printf("mortality_rate: %f\n", new_variant.mortality_rate);
+    printf("recover_time: %d\n", new_variant.recovery_time);
+    printf("immunity_time: %d\n", new_variant.immunity_time);
+    printf("====================================\n");
     return new_variant_index;
 }
 
 // Kills people based on variant mortality rate
-__global__ void killPeople(Variant* variants, int* variant, int* dead) {
+__global__ void killPeople(Variant* variants, int* variant, int* dead, bool* fresh) {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
     if (tid >= POPULATION){
         return;
@@ -411,13 +468,14 @@ __global__ void killPeople(Variant* variants, int* variant, int* dead) {
 
     int stride = blockDim.x * gridDim.x;
     for (int i = tid; i < POPULATION; i += stride) {
-        if (variant[i] < 0){
+        if (variant[i] < 0 || fresh[i]){
             // Uninfected, cannot kill
             return;
         }
 
         // Get the variant of the person
         Variant our_variant = variants[variant[i]];
+        
 
         // Roll die to determine if killed off
         if (randomFloat(tid) < our_variant.mortality_rate) { 
@@ -445,19 +503,22 @@ __global__ void tick(Variant* variants, int* immunity, int* variant, int* dead, 
         immunity[i] = ::max(--immunity[i], -1);
 
         //currently infected but survived, don't tick fresh
-        if (dead[i] > 0 && fresh[i] == false) {
+        if (dead[i] > 0) {
             // Tick infection time
-            dead[i] = ::max(--dead[i], 0);
+            if(fresh[i] == false){
+                dead[i] = ::max(--dead[i], 0);
+            }
             return;
         }
 
         //either recovering, or were never infected
         //check if variant is > 0 to see if infected
-        if (variant[i] > 0) {
+        if (variant[i] >= 0) {
+            printf("T%d - Recovered: P%d\n", tid, i);
             // Gain immunity
             immunity[i] = variants[variant[i]].immunity_time;
             // Mark as uninfected
-            variant[i] = 0;
+            variant[i] = -1;
         }
     }
 }
