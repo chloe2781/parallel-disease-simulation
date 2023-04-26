@@ -1,14 +1,17 @@
 #include "util.h"
 #include <iostream>
 #include <chrono>
+#include <set>
 
 
 //#include <SDL2/SDL.h>
 //
 //void drawPerson(SDL_Renderer* renderer, const Person& person) {
 //    // Set color to red
-//    std::cout << person.dead << std::endl;
-//    person.dead ? SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255) : SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+//    //std::cout << person.dead << std::endl;
+//    //person.dead ? SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255) : SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+//    std::cout << person.status << std::endl;
+//    person.status == -1 ? SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255) : SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
 //
 //    // Draw a rectangle at the person's coordinates
 //    SDL_Rect rect = { person.x*10, person.y*10, 10, 10 };
@@ -67,8 +70,14 @@ int main() {
     variants[0].immunity = 90;
 
     // Generate random indexes for people to be infected
+    std::set<int> infected_ids;
     for (int i = 0; i < config.starting_infected; i++) {
-        int id = randRangePos(config.start_population);
+        int id;
+        do {
+            id = randRangePos(config.start_population);
+        } while (infected_ids.count(id) > 0);
+        infected_ids.insert(id);
+
         std::cout << "Person " << id << " is infected" << std::endl;
 //        people[id].status = true;
 //        people[id].day_infected = 0;
