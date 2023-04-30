@@ -37,11 +37,11 @@ __host__ void simulation() {
 
         int sim_bytes_used = 0;
         int people_bytes_used = 0;
-        sim_bytes_used += (sizeof(Variant) * variant_cap) + 8 + (sizeof(Snapshot) * EPOCHS); //variants + variant_count + variant_cap + snapshots
+        sim_bytes_used += (sizeof(Variant) * variant_cap) + 8 + (sizeof(Snapshot) * EPOCHS);
         people_bytes_used += (sizeof(int) * (POPULATION) * 4) + (sizeof(bool) * (POPULATION)); //positions + variant + immunity + dead
 
-        double sim_bytes_used_GB = sim_bytes_used / pow(1024.0, 3);
-        double people_bytes_used_GB = people_bytes_used / pow(1024.0, 3);
+        double sim_bytes_used_GB = sim_bytes_used / 1000000000.0;
+        double people_bytes_used_GB = people_bytes_used / 1000000000.0;
         printf("Sim memory footprint: %f bytes\n", sim_bytes_used_GB);
         printf("People memory footprint: %f bytes\n", people_bytes_used_GB);
 
@@ -59,12 +59,17 @@ __host__ void simulation() {
         variant_count = 1;
         Variant v {};
         v.id = 0,
-        v.recovery_time = 14;
+        v.recovery_time = 1;
         v.mortality_rate = 0.015f;
-        v.infection_rate = 0.3f;
+        v.infection_rate = 1.0f;
         v.mutation_rate = 0.001f;
         v.immunity_time = 90;
         variants[0] = v;
+
+        //infect one person
+        variant[0] = 0;
+        dead[0] = v.recovery_time;
+        
 
         //set up GPU memory
         int *d_variant_count = NULL;
@@ -126,23 +131,24 @@ __host__ void simulation() {
             tick<<<TICK_BLOCKS,TICK_THREADS>>>(d_variants, d_immunity, d_variant, d_dead, d_fresh);
             cudaDeviceSynchronize();
             cudaCheck("tick error");
-            // printf("running gpuPeek()\n");
-            // gpuPeek<<<1, 1>>>(d_position, d_variant, d_immunity, d_dead, d_fresh);
-            // cudaDeviceSynchronize();
-            // cudaCheck("gpuPeek error");
+            printf("running gpuPeek()\n");
+            gpuPeek<<<1, 1>>>(d_position, d_variant, d_immunity, d_dead, d_fresh);
+            cudaDeviceSynchronize();
+            cudaCheck("gpuPeek error");
             // printf("running showVariants()\n");
             // showVariants<<<1, 1>>>(d_variants, d_variant_count);
             // cudaDeviceSynchronize();
             // cudaCheck("showVariants error");
+            printf("running takeSnapshot()\n");
+            takeSnapshot<<<1, SNAPSHOT_THREADS>>>(d_snapshots, i, d_immunity, d_dead, d_fresh, d_variant_count);
+            cudaDeviceSynchronize();
+            cudaCheck("takeSnapshot error");
             //zero the fresh array for next epoch
             printf("zeroing fresh array\n");
             cudaMemset(d_fresh, 0, POPULATION*sizeof(bool));
             cudaCheck("zeroing fresh array error");
             cudaDeviceSynchronize();
-            printf("running takeSnapshot()\n");
-            takeSnapshot<<<SNAPSHOT_BLOCKS, SNAPSHOT_THREADS>>>(d_snapshots, i, d_immunity, d_dead, d_fresh, d_variant_count);
-            cudaDeviceSynchronize();
-            cudaCheck("takeSnapshot error");
+
         }
 
 {        cudaDeviceSynchronize();
@@ -261,7 +267,7 @@ __global__ void takeSnapshot(Snapshot *snapshots, int epoch, int *immunity, int 
         num_infected_shared[threadIdx.x] += (person_status > 0);
         num_uninfected_shared[threadIdx.x] += (person_status == 0);
         num_immune_shared[threadIdx.x] += (immune_status > 0);
-        num_fresh_infected_shared[threadIdx.x] += fresh[i];
+        num_fresh_infected_shared[threadIdx.x] += (fresh[i] == true);
     }
 
     //parallel reduction
@@ -285,14 +291,10 @@ __global__ void takeSnapshot(Snapshot *snapshots, int epoch, int *immunity, int 
         snapshots[epoch].uninfected = num_uninfected_shared[0];
         snapshots[epoch].immune = num_immune_shared[0];
         snapshots[epoch].fresh = num_fresh_infected_shared[0];
-
         //update variant count and epoch
         snapshots[epoch].variant_count = *variant_count;
         snapshots[epoch].epoch = epoch;
     }
-
-    
-
 }
 
 //put the snapshots into a file
@@ -300,8 +302,10 @@ void outputSnapshots(Snapshot *snapshots){
     //each snapshot is 1 line
     std::ofstream output_file;
     output_file.open("snapshots.txt");
+    //print out the names of the columns
+    output_file << "ep al de in un im va fr" << std::endl;
     for (int i = 0; i < EPOCHS; i++){
-        output_file << snapshots[i].epoch << " " << snapshots[i].alive << " " << snapshots[i].dead << " " << snapshots[i].infected << " " << snapshots[i].uninfected << " " << snapshots[i].immune << " " << snapshots[i].variant_count << std::endl;
+        output_file << snapshots[i].epoch << "  " << snapshots[i].alive << "  " << snapshots[i].dead << "  " << snapshots[i].infected << "  " << snapshots[i].uninfected << "  " << snapshots[i].immune << "  " << snapshots[i].variant_count << "  " << snapshots[i].fresh << std::endl;
     }
     output_file.close();
 }

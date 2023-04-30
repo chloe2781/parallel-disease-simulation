@@ -5,7 +5,7 @@
 
 //overall parameters
 const int GRID_SIZE = 256; // size of the grid
-const int POPULATION = 4; // population of the simulation, 2^20, targeting up to 300 million atm
+const int POPULATION = 5; // population of the simulation, 2^20, targeting up to 300 million atm
 const int RANDOM_SEED = 1337; // seed for the random number generator
 const int EPOCHS = 4; // number of epochs to run the simulation for
 const int SHMEM_KB = 48; //change per GPU
@@ -32,5 +32,4 @@ const int TICK_BLOCKS = POPULATION / TICK_THREADS + (POPULATION % TICK_THREADS !
 
 //snapshot parameters
 const int SNAPSHOT_THREADS = 4; // number of threads per block
-const int SNAPSHOT_BLOCKS = POPULATION / SNAPSHOT_THREADS + (POPULATION % SNAPSHOT_THREADS != 0); // number of blocks
 #endif // CONFIG_H
