@@ -8,9 +8,11 @@
 #include <string>
 #include <atomic>
 #include <iostream>
+#include <fstream>
 
 //THIS CODE SPONSORED BY SHADOW WIZARD MONEY GANG
 //"We love casting spells"
+
 
 __host__ void simulation() {
 
@@ -18,8 +20,10 @@ __host__ void simulation() {
         int variant_count = 0;
         int variant_cap = 256;
         Variant* variants = new Variant[variant_cap]; 
+        //container for snapshots of the sim
+        Snapshot *snapshots = new Snapshot[EPOCHS];
 
-        //Person Variables, SoA
+        //Person Variables (SoA)
         //position is stored as a single int, with the x and y coordinates packed into it
         int* positions = new int[(POPULATION)];
         // variant[value] = ID of variant, negative value if not infected
@@ -33,18 +37,15 @@ __host__ void simulation() {
 
         int sim_bytes_used = 0;
         int people_bytes_used = 0;
-        sim_bytes_used += sizeof(Variant) * variant_cap + 8; //variants + variant_count + variant_cap
-        people_bytes_used += sizeof(int) * (POPULATION) * 4; //positions + variant + immunity + dead
-        people_bytes_used += sizeof(bool) * (POPULATION); //fresh
+        sim_bytes_used += (sizeof(Variant) * variant_cap) + 8 + (sizeof(Snapshot) * EPOCHS); //variants + variant_count + variant_cap + snapshots
+        people_bytes_used += (sizeof(int) * (POPULATION) * 4) + (sizeof(bool) * (POPULATION)); //positions + variant + immunity + dead
 
         double sim_bytes_used_GB = sim_bytes_used / pow(1024.0, 3);
         double people_bytes_used_GB = people_bytes_used / pow(1024.0, 3);
         printf("Sim memory footprint: %f bytes\n", sim_bytes_used_GB);
         printf("People memory footprint: %f bytes\n", people_bytes_used_GB);
 
-        //initialize on host
         printf("Initializing data\n");
-
         //zero out SoA
         for (int i = 0; i < POPULATION; i++) {
             positions[i] = 0;
@@ -54,40 +55,22 @@ __host__ void simulation() {
             fresh[i] = false;
         }
 
-        //place 2 people in the sim together
-        positions[0] = 128 * 256 + 128;
-        positions[1] = 128 * 256 + 128;
-
         //set up the first variant
         variant_count = 1;
         Variant v {};
         v.id = 0,
         v.recovery_time = 14;
-        v.mortality_rate = 0.015;
-        v.infection_rate = 0.3;
-        v.mutation_rate = 0.001;
+        v.mortality_rate = 0.015f;
+        v.infection_rate = 0.3f;
+        v.mutation_rate = 0.001f;
         v.immunity_time = 90;
-        
         variants[0] = v;
-
-        //infect the first person with the variant
-        variant[0] = 0;
-        dead[0] = v.recovery_time;
-
-        //infect someone else with the variant
-        variant[2] = 0;
-        dead[2] = v.recovery_time;
-
-        //show initial values
-        printf("Initial Values:\n");
-        for (int i = 0; i < POPULATION; i++) {
-            printf("Person %d is at position (%d, %d). Fresh: %d Variant: %d, Immunity: %d, Dead: %d\n", i, positions[i] % GRID_SIZE, positions[i] / GRID_SIZE, fresh[i], variant[i], immunity[i], dead[i]);
-        }
 
         //set up GPU memory
         int *d_variant_count = NULL;
         int *d_variant_cap = NULL;
         Variant *d_variants = NULL;
+        Snapshot *d_snapshots = NULL;
 
         int *d_position = NULL;
         int *d_variant = NULL;
@@ -95,9 +78,10 @@ __host__ void simulation() {
         int* d_dead = NULL;
         bool* d_fresh = NULL;
 
-        printf("Allocating GPU memory\n");
+{        printf("Allocating GPU memory\n");
         cudaMalloc((void**)&d_variant_count, sizeof(int));
         cudaMalloc((void**)&d_variant_cap, sizeof(int));
+        cudaMalloc((void**)&d_snapshots, sizeof(Snapshot) * EPOCHS);
 
         cudaMalloc((void**)&d_variants, sizeof(Variant) * variant_cap);
         cudaMalloc((void**)&d_position, sizeof(int) * (POPULATION));
@@ -111,6 +95,7 @@ __host__ void simulation() {
         cudaMemcpy(d_variant_count,     &variant_count, sizeof(int),                            cudaMemcpyHostToDevice);
         cudaMemcpy(d_variant_cap,       &variant_cap, sizeof(int),                              cudaMemcpyHostToDevice);
         cudaMemcpy(d_variants,          variants, sizeof(Variant) * variant_cap,                cudaMemcpyHostToDevice);
+        cudaMemcpy(d_snapshots,         snapshots, sizeof(Snapshot) * EPOCHS,                   cudaMemcpyHostToDevice);
 
         cudaMemcpy(d_position,          positions, sizeof(int) * (POPULATION),                  cudaMemcpyHostToDevice);
         cudaMemcpy(d_variant,           variant, sizeof(int) * (POPULATION),                    cudaMemcpyHostToDevice);
@@ -118,7 +103,8 @@ __host__ void simulation() {
         cudaMemcpy(d_dead, dead,        sizeof(int) * (POPULATION),                             cudaMemcpyHostToDevice);
         cudaMemcpy(d_fresh, fresh,      sizeof(bool) * (POPULATION),                            cudaMemcpyHostToDevice);
         cudaCheck("Error copying data to GPU");
-
+}
+        
         // Run the sim
         printf("==============================================================================\n");
         printf("Running simulationfor %d epoch(s)\n", EPOCHS);
@@ -140,24 +126,32 @@ __host__ void simulation() {
             tick<<<TICK_BLOCKS,TICK_THREADS>>>(d_variants, d_immunity, d_variant, d_dead, d_fresh);
             cudaDeviceSynchronize();
             cudaCheck("tick error");
-            printf("running gpuPeek()\n");
-            gpuPeek<<<1, 1>>>(d_position, d_variant, d_immunity, d_dead, d_fresh);
-            cudaDeviceSynchronize();
-            cudaCheck("gpuPeek error");
-            printf("running showVariants()\n");
-            showVariants<<<1, 1>>>(d_variants, d_variant_count);
-            cudaDeviceSynchronize();
-            cudaCheck("showVariants error");
+            // printf("running gpuPeek()\n");
+            // gpuPeek<<<1, 1>>>(d_position, d_variant, d_immunity, d_dead, d_fresh);
+            // cudaDeviceSynchronize();
+            // cudaCheck("gpuPeek error");
+            // printf("running showVariants()\n");
+            // showVariants<<<1, 1>>>(d_variants, d_variant_count);
+            // cudaDeviceSynchronize();
+            // cudaCheck("showVariants error");
             //zero the fresh array for next epoch
+            printf("zeroing fresh array\n");
             cudaMemset(d_fresh, 0, POPULATION*sizeof(bool));
-            cudaCheck("gpuPeek error");
-
+            cudaCheck("zeroing fresh array error");
+            cudaDeviceSynchronize();
+            printf("running takeSnapshot()\n");
+            takeSnapshot<<<SNAPSHOT_BLOCKS, SNAPSHOT_THREADS>>>(d_snapshots, i, d_immunity, d_dead, d_fresh, d_variant_count);
+            cudaDeviceSynchronize();
+            cudaCheck("takeSnapshot error");
         }
+
+{        cudaDeviceSynchronize();
         printf("Epochs complete\n");
 
         printf("Copying data back to CPU\n");
         cudaMemcpy(&variant_cap,        d_variant_cap, sizeof(int),                             cudaMemcpyDeviceToHost);
         cudaMemcpy(variants,            d_variants, sizeof(Variant) * variant_cap,              cudaMemcpyDeviceToHost);
+        cudaMemcpy(snapshots,           d_snapshots, sizeof(Snapshot) * EPOCHS,                 cudaMemcpyDeviceToHost);
 
         cudaMemcpy(positions,           d_position, sizeof(int) * (POPULATION),                 cudaMemcpyDeviceToHost);
         cudaMemcpy(variant,             d_variant, sizeof(int) * (POPULATION),                  cudaMemcpyDeviceToHost);
@@ -166,27 +160,48 @@ __host__ void simulation() {
         cudaMemcpy(fresh,               d_fresh, sizeof(bool) * (POPULATION),                   cudaMemcpyDeviceToHost);
         cudaCheck("Error copying data back to CPU");
 
-        //print out the positions of all the people
-        printf("====================================\n");
-        printf("Final Values:\n");
-        for (int i = 0; i < POPULATION; i++) {
-            printf("Person %d is at position (%d, %d). Fresh: %d Variant: %d, Immunity: %d, Dead: %d\n", i, positions[i] % GRID_SIZE, positions[i] / GRID_SIZE, fresh[i], variant[i], immunity[i], dead[i]);
-        }
-
         printf("Freeing GPU memory\n");
         cudaFree(d_variant_count);
         cudaFree(d_variant_cap);
         cudaFree(d_variants);
+        cudaFree(d_snapshots);
 
         cudaFree(d_position);
         cudaFree(d_variant);
         cudaFree(d_immunity);
         cudaFree(d_dead);
         cudaFree(d_fresh);
-        cudaCheck("Error freeing GPU memory");
+        cudaCheck("Error freeing GPU memory");}
 
         printf("Simulation complete\n");
+
+        printf("==============================================================================\n");
+        printf("Preliminary results\n");
+        //print the details of the last snapshot
+        //structure of the snapshot is:
+        //     int epoch;
+        //     int variant_count;
+        //     int alive;
+        //     int dead;
+        //     int infected;
+        //     int uninfected;
+        //     int immune;
+        //     int fresh;
+        printf("Snapshot of epoch %d\n", snapshots[EPOCHS - 1].epoch);
+        printf("Variant count: %d\n", snapshots[EPOCHS - 1].variant_count);
+        printf("Alive: %d\n", snapshots[EPOCHS - 1].alive);
+        printf("Dead: %d\n", snapshots[EPOCHS - 1].dead);
+        printf("Infected: %d\n", snapshots[EPOCHS - 1].infected);
+        printf("Uninfected: %d\n", snapshots[EPOCHS - 1].uninfected);
+        printf("Immune: %d\n", snapshots[EPOCHS - 1].immune);
+        printf("Infections this epoch: %d\n", snapshots[EPOCHS - 1].fresh);
+
+        outputSnapshots(snapshots);
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// UTILITY CODE ////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //print out the stats of all the variants, expected to be 1 thread, 1 block
 __global__ void showVariants(Variant* variants, int * variant_count){
@@ -212,6 +227,88 @@ void cudaCheck(const std::string &message){
         return;
     }
 }
+
+//take a snapshot of the current state of the simulation and store it in the snapshots array
+__global__ void takeSnapshot(Snapshot *snapshots, int epoch, int *immunity, int *dead, bool *fresh, int * variant_count){
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    int stride = blockDim.x * gridDim.x;
+
+        // Allocate shared memory for the block
+    __shared__ int num_alive_shared[SNAPSHOT_THREADS];
+    __shared__ int num_dead_shared[SNAPSHOT_THREADS];
+    __shared__ int num_infected_shared[SNAPSHOT_THREADS];
+    __shared__ int num_uninfected_shared[SNAPSHOT_THREADS];
+    __shared__ int num_immune_shared[SNAPSHOT_THREADS];
+    __shared__ int num_fresh_infected_shared[SNAPSHOT_THREADS];
+
+    // Initialize shared memory
+    num_alive_shared[threadIdx.x] = 0;
+    num_dead_shared[threadIdx.x] = 0;
+    num_infected_shared[threadIdx.x] = 0;
+    num_uninfected_shared[threadIdx.x] = 0;
+    num_immune_shared[threadIdx.x] = 0;
+    num_fresh_infected_shared[threadIdx.x] = 0;
+
+    __syncthreads();
+
+    //calculate the sums
+    for (int i = tid; i < POPULATION; i += stride){
+        int person_status = dead[i];
+        int immune_status = immunity[i];
+
+        num_alive_shared[threadIdx.x] += (person_status >= 0);
+        num_dead_shared[threadIdx.x] += (person_status == -1);
+        num_infected_shared[threadIdx.x] += (person_status > 0);
+        num_uninfected_shared[threadIdx.x] += (person_status == 0);
+        num_immune_shared[threadIdx.x] += (immune_status > 0);
+        num_fresh_infected_shared[threadIdx.x] += fresh[i];
+    }
+
+    //parallel reduction
+    for (int i = blockDim.x / 2; i > 0; i >>= 1){
+        if (threadIdx.x < i){
+            num_alive_shared[threadIdx.x] += num_alive_shared[threadIdx.x + i];
+            num_dead_shared[threadIdx.x] += num_dead_shared[threadIdx.x + i];
+            num_infected_shared[threadIdx.x] += num_infected_shared[threadIdx.x + i];
+            num_uninfected_shared[threadIdx.x] += num_uninfected_shared[threadIdx.x + i];
+            num_immune_shared[threadIdx.x] += num_immune_shared[threadIdx.x + i];
+            num_fresh_infected_shared[threadIdx.x] += num_fresh_infected_shared[threadIdx.x + i];
+        }
+        __syncthreads();
+    }
+
+    //write to global memory
+    if (threadIdx.x == 0){
+        snapshots[epoch].alive = num_alive_shared[0];
+        snapshots[epoch].dead = num_dead_shared[0];
+        snapshots[epoch].infected = num_infected_shared[0];
+        snapshots[epoch].uninfected = num_uninfected_shared[0];
+        snapshots[epoch].immune = num_immune_shared[0];
+        snapshots[epoch].fresh = num_fresh_infected_shared[0];
+
+        //update variant count and epoch
+        snapshots[epoch].variant_count = *variant_count;
+        snapshots[epoch].epoch = epoch;
+    }
+
+    
+
+}
+
+//put the snapshots into a file
+void outputSnapshots(Snapshot *snapshots){
+    //each snapshot is 1 line
+    std::ofstream output_file;
+    output_file.open("snapshots.txt");
+    for (int i = 0; i < EPOCHS; i++){
+        output_file << snapshots[i].epoch << " " << snapshots[i].alive << " " << snapshots[i].dead << " " << snapshots[i].infected << " " << snapshots[i].uninfected << " " << snapshots[i].immune << " " << snapshots[i].variant_count << std::endl;
+    }
+    output_file.close();
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// SIM CODE ////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // move people randomly around the grid, wrapping on edges
 __global__ void movePeople(int *positions, int epoch) {
@@ -450,6 +547,10 @@ __global__ void tick(Variant* variants, int* immunity, int* variant, int* dead, 
         }
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// RNG CODE ////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // device function to make a random movement
 __device__ int randomMovement(int thread_id, int offset) {

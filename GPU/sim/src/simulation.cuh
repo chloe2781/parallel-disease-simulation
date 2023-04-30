@@ -8,18 +8,26 @@
 using namespace std;
 
 struct Variant {
-int id;                // variant number of the disease
+int id;                 // variant number of the disease
 int recovery_time;      // days it takes to no longer be contagious
 float mortality_rate;   // percent chance on each day that a person dies
 float infection_rate;   // percent chance that a person within the infected range is infected
 float mutation_rate;    // percent chance that an infection mutates upon infection of another person
-int immunity_time;           // number of days until the person is no longer immune
-
-    string toString(){
-        return "Variant " + to_string(id) + " - " + " mort: " + to_string(mortality_rate) + " inf: " + to_string(infection_rate) + " mut: " + to_string(mutation_rate) + " rec: " + to_string(recovery_time) + " imm: " + to_string(immunity_time);
-    }
+int immunity_time;      // number of days until the person is no longer immune
 };
 
+
+//stores aggregate data from an epoch
+struct Snapshot {
+    int epoch;
+    int variant_count;
+    int alive;
+    int dead;
+    int infected;
+    int uninfected;
+    int immune;
+    int fresh;
+};
 
 __host__ void simulation();
 
@@ -33,6 +41,9 @@ __global__ void killPeople(Variant* variants, int* variant, int* dead, bool* fre
 __global__ void tick(Variant* variants, int* immunity, int* variant, int* dead, bool* fresh);
 __device__ int randomMovement(int thread_id, int offset);
 __device__ float randomFloat(int tid);
+__global__ void takeSnapshot(Snapshot *snapshots, int epoch, int *immunity, int *dead, bool *fresh, int * variant_count);
+void outputSnapshots(Snapshot *snapshots);
+
 
 static __inline__ __device__ bool atomicCAS(bool *address, bool compare, bool val)
 {
