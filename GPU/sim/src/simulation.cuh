@@ -27,14 +27,12 @@ void cudaCheck(const std::string &message);
 __global__ void showVariants(Variant* variants, int * variant_count);
 __global__ void gpuPeek(int* positions, int* variant, int* immunity, int* dead, bool* fresh);
 __global__ void movePeople(int *positions, int epoch);
-__global__ void updateCellOccupancy(int *cell_grid_first, int *cell_grid_last, int *positions, int *next);
 __global__ void infectPeople(Variant* variants, int* positions, int *variant_count, int *variant_cap, int* variant, int* immunity, int* dead, bool* fresh);
 __device__ int createVariant(Variant *variants, int *variant_count, int *variant_cap, int source_variant);
 __global__ void killPeople(Variant* variants, int* variant, int* dead, bool* fresh);
 __global__ void tick(Variant* variants, int* immunity, int* variant, int* dead, bool* fresh);
-__device__ int randomMovement(int tid);
+__device__ int randomMovement(int thread_id, int offset);
 __device__ float randomFloat(int tid);
-__host__ __device__ int coordToIndex(int x, int y);
 
 static __inline__ __device__ bool atomicCAS(bool *address, bool compare, bool val)
 {
