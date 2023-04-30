@@ -39,7 +39,28 @@ def plot_color_and_size_scale():
     # show the plot
     plt.show()
 
+def plot_deaths_over_time():
+    with open('points.txt', 'r') as file:
+        # Initialize an empty list to store the tuples
+        death_days = []
+        # Iterate through each line in the file
+        for line in file:
+            # Convert the stringified tuple into a tuple object
+            tuple_str = line.strip()  # Remove any leading/trailing whitespaces
+            tuple_obj = tuple(map(int, tuple_str[1:-1].split(',')))  # Convert to tuple
+            deaths = int(tuple_obj[2])
+            death_days.append(deaths)
+
+    freq = Counter(death_days)
+    plt.plot(freq.keys(), freq.values())
+    # Add labels and title
+    plt.xlabel('Day')
+    plt.ylabel('Total Deaths')
+    plt.title('Deaths per timestamp')
+    plt.show()
+
+
 
 #plot_color_and_size_scale()
-
+#plot_deaths_over_time()
 

@@ -16,7 +16,6 @@ std::atomic<int> max_variant(0);
 */
 void move(Person *people, int start, int end) {
     //for (int i = 0; i < MAX_STARTING_POPULATION; i++) { //removed to thread
-
     for (int i = start; i < end; i++) {
         // Generate random offsets for x and y coordinates within the movement range
 
@@ -53,15 +52,13 @@ void move(Person *people, int start, int end) {
 void die(Person *people, Variant *variants, int start, int end, int curr_day) {
     //for (int i = 0; i < MAX_STARTING_POPULATION; i++) { //removed to thread
     std::ofstream file("points.txt", std::ios::app);
-
     for (int i = start; i < end; i++) {
-
       // if person is infected, decrement day infected and update if they die
       if (people[i].status > 1) {
         people[i].status--; // increment time to account for current day we're on
         float prob = rand01();
         if (prob < variants[people[i].variant].mortality_rate) {
-          file << "(" << people[i].x << ", " << people[i].y << ")" << std::endl; // write to the file
+          file << "(" << people[i].x << ", " << people[i].y << ", " << curr_day << ")" << std::endl; // write to the file
           people[i].status = -1;
           continue;
         }
@@ -78,7 +75,6 @@ void die(Person *people, Variant *variants, int start, int end, int curr_day) {
         people[i].immunity--;
       }
     }
-    file.close();
 }
 
 /* Mutations are kept within the *variants list
