@@ -4,8 +4,9 @@
 
 
 //overall parameters
-const int GRID_SIZE = 256; // size of the grid
+const int GRID_SIZE = 100; // size of the grid
 const int POPULATION = 5; // population of the simulation, 2^20, targeting up to 300 million atm
+const int STARTING_INFECTED = 2; // number of infected agents at the start of the simulation
 const int RANDOM_SEED = 1337; // seed for the random number generator
 const int EPOCHS = 4; // number of epochs to run the simulation for
 const int SHMEM_KB = 48; //change per GPU

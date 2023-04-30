@@ -43,6 +43,8 @@ __device__ int randomMovement(int thread_id, int offset);
 __device__ float randomFloat(int tid);
 __global__ void takeSnapshot(Snapshot *snapshots, int epoch, int *immunity, int *dead, bool *fresh, int * variant_count);
 void outputSnapshots(Snapshot *snapshots);
+int getRandomCell();
+int getRandomPerson();
 
 
 static __inline__ __device__ bool atomicCAS(bool *address, bool compare, bool val)
