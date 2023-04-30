@@ -1,5 +1,7 @@
 #include "helpers.h"
 #include <thread>
+#include <iostream>
+#include <fstream>
 #include <atomic>
 #define MAX_THREADS 16 // subject to change
 
@@ -50,6 +52,7 @@ void move(Person *people, int start, int end) {
 */
 void die(Person *people, Variant *variants, int start, int end, int curr_day) {
     //for (int i = 0; i < MAX_STARTING_POPULATION; i++) { //removed to thread
+    std::ofstream file("points.txt", std::ios::app);
 
     for (int i = start; i < end; i++) {
 
@@ -58,6 +61,7 @@ void die(Person *people, Variant *variants, int start, int end, int curr_day) {
         people[i].status--; // increment time to account for current day we're on
         float prob = rand01();
         if (prob < variants[people[i].variant].mortality_rate) {
+          file << "(" << people[i].x << ", " << people[i].y << ")" << std::endl; // write to the file
           people[i].status = -1;
           continue;
         }
@@ -74,6 +78,7 @@ void die(Person *people, Variant *variants, int start, int end, int curr_day) {
         people[i].immunity--;
       }
     }
+    file.close();
 }
 
 /* Mutations are kept within the *variants list

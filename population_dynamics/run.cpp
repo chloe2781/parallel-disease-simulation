@@ -1,23 +1,6 @@
 #include "util.h"
 #include <iostream>
 #include <chrono>
-#include <set>
-
-
-//#include <SDL2/SDL.h>
-//
-//void drawPerson(SDL_Renderer* renderer, const Person& person) {
-//    // Set color to red
-//    //std::cout << person.dead << std::endl;
-//    //person.dead ? SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255) : SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-//    std::cout << person.status << std::endl;
-//    person.status == -1 ? SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255) : SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-//
-//    // Draw a rectangle at the person's coordinates
-//    SDL_Rect rect = { person.x*10, person.y*10, 10, 10 };
-//    SDL_RenderFillRect(renderer, &rect);
-//}
-
 int main() {
 
     // Initialize the random number generator
@@ -64,24 +47,14 @@ int main() {
     variants[0].variant_num = 0;
     variants[0].recovery_time = 14;
     variants[0].mortality_rate = 0.015;
-    variants[0].infection_rate = 0.3;
+    variants[0].infection_rate = 0.5;
+//    variants[0].infection_range = 3;
     variants[0].mutation_rate = 0.001;
     variants[0].immunity = 90;
 
     // Generate random indexes for people to be infected
-    std::set<int> infected_ids;
-
-    if (config.starting_infected > config.start_population) {
-        config.starting_infected = config.start_population;
-    }
-
     for (int i = 0; i < config.starting_infected; i++) {
-        int id;
-        do {
-            id = randRangePos(config.start_population);
-        } while (infected_ids.count(id) > 0);
-        infected_ids.insert(id);
-
+        int id = randRangePos(config.start_population);
         std::cout << "Person " << id << " is infected" << std::endl;
 //        people[id].status = true;
 //        people[id].day_infected = 0;
@@ -122,20 +95,17 @@ int main() {
 //    std::cout << " Checkpoint 5 " << std::endl;
 
     // ... code to do something with the updated people ...
+
     std::cout << " ----------------------------------------- " << std::endl;
 
     std::cout << " Ending Population" << std::endl;
 
     int end_population_size = 0;
     int end_immune_size = 0;
-    int num_never_infected = 0;
-    int num_immunity = 0;
     // print the people after the simulation
     for (int i = 0; i < config.start_population; i++) {
         end_population_size += people[i].status < 0 ? 0 : 1;
         end_immune_size += people[i].immunity ? 1 : 0;
-        num_never_infected += people[i].immunity == -1 && people[i].status == 0 ? 1 : 0;
-        num_immunity += people[i].immunity > 0 ? 1 : 0;
         std::cout << "Person " << i
 //                  << " - ID: " << people[i].id
                   << ", X: " << people[i].x
@@ -160,51 +130,15 @@ int main() {
                   << std::endl;
     }
 
-    // HERD IMMUNITY
-    // status < 1 for all people => disease is gone => herd immunity
-    // mortality rate = 100 => everyone died
-    // immunity > 0
-
     std::cout << " ----------------------------------------- \n" << std::endl;
     std::cout << "Statistics" << std::endl;
     std::cout << "Time taken by disease_simulation: " << duration.count() << " microseconds" << std::endl;
     std::cout << "Start population size: " << config.start_population << std::endl;
     std::cout << "Ending population size: " << end_population_size << std::endl;
-    std::printf("%s %.2f\n", "Mortality Rate:", float(100) * (1 - float(end_population_size)/float(config.start_population)));
-    std::printf("%s %.2f\n", "Infection Rate:", float(100) * (MAX_STARTING_POPULATION - num_never_infected)/MAX_STARTING_POPULATION);
-    std::printf("%s %.2f\n", "Immunity Rate:", float(100) * float(num_immunity)/float(config.start_population));
-
+    std::printf("%s %.2f", "Mortality Rate:", float(100) * (1 - float(end_population_size)/float(config.start_population)));
+    std::cout << '\n' << std::endl;
 
     //std::printf("%s %.2f", "Percent Immune:", float(100) * (1 - float(end_immune_size)/float(config.start_population)));
-
-//    SDL_Init(SDL_INIT_VIDEO);
-//
-//    // Create a window and renderer
-//    SDL_Window* window = SDL_CreateWindow("Map", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 500, 500, SDL_WINDOW_SHOWN);
-//    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-//
-//    for (int i = 0; i < config.start_population; i++) {
-//        drawPerson(renderer, people[i]);
-//    }
-//
-//    // Update the screen
-//    SDL_RenderPresent(renderer);
-//
-//    // Wait for a key press before exiting
-//    bool quit = false;
-//    while (!quit) {
-//        SDL_Event event;
-//        while (SDL_PollEvent(&event)) {
-//            if (event.type == SDL_QUIT) {
-//                quit = true;
-//            }
-//        }
-//    }
-//
-//    // Clean up SDL
-//    SDL_DestroyRenderer(renderer);
-//    SDL_DestroyWindow(window);
-//    SDL_Quit();
 
     return 0;
 }
