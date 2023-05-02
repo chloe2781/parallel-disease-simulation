@@ -16,7 +16,7 @@ int main() {
     config.width = BOARD_WIDTH;
     //these can change depending on which simulation we run
     config.masking = false;
-    config.vaccination = true;
+    config.vaccination = false;
     config.social_distancing = false;
     config.percent_vaxed = .9
 
