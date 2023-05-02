@@ -16,8 +16,9 @@ int main() {
     config.width = BOARD_WIDTH;
     //these can change depending on which simulation we run
     config.masking = false;
-    config.vaccination = false;
+    config.vaccination = true;
     config.social_distancing = false;
+    config.percent_vaxed = .9
 
 //    std::cout << " Checkpoint 0.1 " << std::endl;
 
@@ -36,7 +37,7 @@ int main() {
 //        people[i].dead = false;                // set initial dead status as not dead
         people[i].status = 0;                   // set initial status as 0 (alive and not infected)
         people[i].variant = -1;                 // set initial variant as -1 (not infected and never caught the disease)
-        people[i].immunity = -1;                // set initial immunity as -1 (not immune and never caught the disease)
+        people[i].immunity = (config.vaccination && rand01() < config.percent_vaxed) ? 90 : -1;                // set initial immunity as -1 (not immune and never caught the disease)
     }
 
 //    std::cout << " Checkpoint 2 " << std::endl;

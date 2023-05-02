@@ -27,6 +27,7 @@ typedef struct {
   bool masking;            //whether there is masking enabled
   bool vaccination;        //whether there is vaccination enabled
   bool social_distancing;  //whether there is social distancing enabled
+  float percent_vaxed;     //percent of the population vaccinated
 } GameConfig;
 
 // data structure to store information about a person
