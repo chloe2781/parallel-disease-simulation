@@ -32,3 +32,7 @@
 *.app
 
 .idea
+.vscode
+build
+dist
+bin
